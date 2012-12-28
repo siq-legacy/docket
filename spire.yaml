@@ -1,0 +1,33 @@
+uwsgi:
+  home: /home/jrm/.env/standard
+  http-socket: 127.0.0.1:6464
+  master: true
+  module: spire.runtime.uwsgi
+  need-app: true
+  processes: 4
+  threads: 10
+components:
+  - docket.component.Docket
+configuration:
+  docket.component.Docket/api:
+    path: /
+  mesh:docket:
+    bundle: docket.API
+    url: http://localhost:6464/
+  schema:docket:
+    admin_url: postgresql://postgres@localhost/postgres
+    hstore: true
+    echo: false
+    url: postgresql://postgres@localhost/docket
+logging:
+  disable_existing_loggers: false
+  formatters:
+    standard:
+      (): spire.support.logs.LogFormatter
+  handlers:
+    stream:
+      class: logging.StreamHandler
+      formatter: standard
+  root:
+    level: DEBUG
+    handlers: [stream]
