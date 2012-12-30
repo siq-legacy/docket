@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import partial
 import re
 
 from spire.mesh.units import construct_mesh_client
@@ -11,7 +12,7 @@ __all__ = ('CachedAttribute', 'Registration')
 ATTRIBUTE_FIELDS = {
     'boolean': Boolean,
     'date': Date,
-    'datetime': DateTime,
+    'datetime': partial(DateTime, timezone=True),
     'decimal': Decimal,
     'float': Float,
     'integer': Integer,
@@ -66,7 +67,11 @@ class Registration(Model):
         return registration
 
     def update(self, session, cached_attributes=None, **params):
-        self.update_with_mapping(params)
+        changed = False
+        for attr, value in params.iteritems():
+            if getattr(self, attr) != value:
+                setattr(self, attr, value)
+                changed = True
 
         if cached_attributes is not None:
             collection = self.cached_attributes
@@ -78,6 +83,8 @@ class Registration(Model):
             for name in collection.keys():
                 if name not in cached_attributes:
                     del collection[name]
+
+        return changed
 
 class CachedAttribute(Model):
     """An entity attribute."""

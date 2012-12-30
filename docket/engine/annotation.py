@@ -7,22 +7,20 @@ from scheme import *
 from docket.engine.controller import ProxyController
 from docket.resources import Entity
 
-def add_schema_field(resource, field, requests='create delete get put query update'):
-    if isinstance(requests, basestring):
-        requests = requests.split(' ')
-
+def add_schema_field(resource, field):
     resource.schema[field.name] = field
-    if 'create' in requests and not field.readonly:
-        resource.requests['create'].schema.insert(field)
-    if 'get' in requests:
-        resource.requests['get'].responses[OK].schema.insert(field)
-    if 'put' in resource.requests and 'put' in requests and not field.readonly:
-        resource.requests['put'].schema.insert(field)
-    if 'query' in requests:
-        response = resource.requests['query'].responses[OK]
-        response.schema.structure['resources'].item.insert(field)
-    if 'update' in requests and not field.readonly:
-        resource.requests['update'].schema.insert(field.clone(required=False))
+    resource.requests['get'].responses[OK].schema.insert(field)
+
+    response = resource.requests['query'].responses[OK]
+    response.schema.structure['resources'].item.insert(field)
+
+    if not field.readonly:
+        if field.oncreate is not False:
+            resource.requests['create'].schema.insert(field)
+        if field.onupdate is not False:
+            resource.requests['update'].schema.insert(field.clone(required=False))
+        if 'put' in resource.requests and field.onput is not False:
+            resource.requests['put'].schema.insert(field)
 
 class annotation(object):
     resource = Entity[1]
@@ -44,16 +42,30 @@ class annotation(object):
 
     @classmethod
     def _annotate_resource(cls, registration, resource):
-        for name, field in cls.resource.filter_schema(exclude=True, annotational=True).iteritems():
+        for name, field in cls.resource.filter_schema(True, annotational=True).iteritems():
             if name not in resource.schema:
                 add_schema_field(resource, field)
 
     @classmethod
     def _construct_controller(cls, registration, resource, description, controller, model):
+        cached_attributes = []
+        for name, attribute in registration.cached_attributes.iteritems():
+            if name in resource.schema:
+                cached_attributes.append(name)
+
+        fields = {}
+        for name, field in cls.resource.filter_schema(True, annotational=True).iteritems():
+            fields[name] = resource.schema[name]
+
         return type('%sController' % resource.title, (controller,), {
+            'cached_attributes': cached_attributes,
             'client': registration.client,
+            'created_is_proxied': (not fields['created'].annotational),
+            'fields': fields,
             'id': description['id'],
             'model': model,
+            'modified_is_proxied': (not fields['modified'].annotational),
+            'registration': registration,
             'resource': resource,
             'version': tuple(description['version']),
         })

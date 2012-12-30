@@ -36,11 +36,11 @@ class RegistrationController(ModelController):
             return response({'id': subject.id})
 
         session = self.schema.session
-        subject.update(session, **data)
+        changed = subject.update(session, **data)
 
         session.commit()
         response({'id': subject.id})
-        self.registry.register(subject)
+        self.registry.register(subject, changed)
 
     def _annotate_resource(self, request, model, resource, data):
         resource['cached_attributes'] = {}

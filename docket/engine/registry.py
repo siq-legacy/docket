@@ -30,9 +30,9 @@ class EntityRegistry(Unit):
         from docket.bundles import API
         API.attach(self.annotator.generate_mounts())
 
-    def register(self, registration):
+    def register(self, registration, changed=False):
         table = self._construct_table(registration)
-        if not self.schema.is_table_correct(table):
+        if changed or not self.schema.is_table_correct(table):
             current_runtime().reload()
 
     def unregister(self, registration):
@@ -54,7 +54,7 @@ class EntityRegistry(Unit):
         for name, attr in sorted(registration.cached_attributes.iteritems()):
             attrs[name] = attr.contribute_field()
 
-        model = type(str(registration.name), (Entity,), attrs)
+        model = type(str(registration.title), (Entity,), attrs)
         registration.annotate(model)
 
         self.schema.create_or_update_table(model.__table__)
