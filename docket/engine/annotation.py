@@ -2,27 +2,15 @@ from copy import deepcopy
 
 from mesh.bundle import Bundle, mount, recursive_mount
 from mesh.standard import *
+from mesh.standard.requests import add_schema_field
 from scheme import *
 
 from docket.engine.controller import ProxyController
 from docket.resources import Entity
 
-def add_schema_field(resource, field):
-    resource.schema[field.name] = field
-    resource.requests['get'].responses[OK].schema.insert(field)
+__all__ = ('Annotation', 'Annotator')
 
-    response = resource.requests['query'].responses[OK]
-    response.schema.structure['resources'].item.insert(field)
-
-    if not field.readonly:
-        if field.oncreate is not False:
-            resource.requests['create'].schema.insert(field)
-        if field.onupdate is not False:
-            resource.requests['update'].schema.insert(field.clone(required=False))
-        if 'put' in resource.requests and field.onput is not False:
-            resource.requests['put'].schema.insert(field)
-
-class annotation(object):
+class Annotation(object):
     resource = Entity[1]
     version = (1, 0)
 
@@ -42,8 +30,8 @@ class annotation(object):
 
     @classmethod
     def _annotate_resource(cls, registration, resource):
-        for name, field in cls.resource.filter_schema(True, annotational=True).iteritems():
-            if name not in resource.schema:
+        for name, field in cls.resource.schema.iteritems():
+            if name not in resource.schema and field.annotational:
                 add_schema_field(resource, field)
 
     @classmethod
@@ -54,8 +42,9 @@ class annotation(object):
                 cached_attributes.append(name)
 
         fields = {}
-        for name, field in cls.resource.filter_schema(True, annotational=True).iteritems():
-            fields[name] = resource.schema[name]
+        for name, field in cls.resource.schema.iteritems():
+            if field.annotational:
+                fields[name] = resource.schema[name]
 
         return type('%sController' % resource.title, (controller,), {
             'cached_attributes': cached_attributes,
@@ -85,7 +74,7 @@ class annotation(object):
 class Annotator(object):
     """The resource annotator."""
 
-    annotations = [annotation]
+    annotations = [Annotation]
 
     def __init__(self):
         self.bundles = {}

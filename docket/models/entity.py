@@ -32,6 +32,22 @@ class Entity(Model):
 
     is_container = False
 
+    @classmethod
+    def create(cls, session, containers=None, **attrs):
+        subject = cls(**attrs)
+        if subject.created:
+            subject.modified = subject.created
+        else:
+            subject.created = subject.modified = current_timestamp()
+
+        session.add(subject)
+        session.flush()
+
+        if containers:
+            pass
+
+        return subject
+
 class TestEntity(Entity):
     class meta:
         polymorphic_identity = 'docket:test'

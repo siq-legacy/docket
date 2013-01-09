@@ -42,18 +42,15 @@ class ProxyController(Unit, Controller):
         except RequestError, exception:
             return response(exception.status, exception.content)
 
-        subject = self.model(**result.content)
-        if subject.created:
-            subject.modified = subject.created
-        else:
-            subject.created = subject.modified = current_timestamp()
-
+        params = result.content
         for attr, field in self.fields.iteritems():
             if attr in data:
-                setattr(subject, attr, data[attr])
+                params[attr] = data[attr]
 
-        self.schema.session.add(subject)
-        self.schema.session.commit()
+        session = self.schema.session
+        subject = self.model.create(session, **params)
+
+        session.commit()
         response({'id': subject.id})
 
     def delete(self, request, response, subject, data):
@@ -180,4 +177,7 @@ class ProxyController(Unit, Controller):
         return self.client.extract(self.id, request, data)
 
     def _execute_request(self, request, subject=None, data=None):
-        return self.client.execute(self.id, request, subject, data)
+        try:
+            return self.client.execute(self.id, request, subject, data)
+        except ConnectionError:
+            raise BadGatewayError()
