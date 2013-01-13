@@ -3,6 +3,7 @@ from mesh.exceptions import *
 from mesh.standard import Controller
 from scheme import current_timestamp
 from spire.core import Unit
+from spire.mesh import field_included
 from spire.mesh.controllers import FilterOperators
 from spire.schema import NoResultFound, SchemaDependency
 from sqlalchemy.sql import asc, desc
@@ -64,8 +65,9 @@ class ProxyController(Unit, Controller):
         response({'id': subject.id})
 
     def get(self, request, response, subject, data):
+        payload = self._extract_data('get', data)
         try:
-            result = self._execute_request('get', subject.id)
+            result = self._execute_request('get', subject.id, payload)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
@@ -74,6 +76,7 @@ class ProxyController(Unit, Controller):
             if attr not in resource:
                 resource[attr] = getattr(subject, attr)
 
+        self._annotate_resource(request, subject, resource, data)
         response(resource)
 
     def put(self, request, response, subject, data):
@@ -115,6 +118,7 @@ class ProxyController(Unit, Controller):
             for attr in attrs:
                 if attr not in resource:
                     resource[attr] = getattr(subject, attr)
+            self._annotate_resource(request, subject, resource, data)
 
         response({'total': total, 'resources': resources})
 
@@ -135,16 +139,20 @@ class ProxyController(Unit, Controller):
         except RequestError, exception:
             return response(exception.status, exception.content)
 
-        subject.update_with_mapping(result.content)
-        if not self.modified_is_proxied:
-            subject.modified = current_timestamp()
-
+        params = result.content
         for attr, field in self.fields.iteritems():
             if attr in data:
-                setattr(subject, attr, data[attr])
+                params[attr] = data[attr]
+
+        session = self.schema.session
+        subject.update(session, **params)
 
         self.schema.session.commit()
         response({'id': subject.id})
+
+    def _annotate_resource(self, request, model, resource, data):
+        if field_included(data, 'containers'):
+            resource['containers'] = model.describe_containers()
 
     def _construct_filters(self, query, filters):
         model, operators = self.model, self.operators

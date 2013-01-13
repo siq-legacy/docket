@@ -1,8 +1,22 @@
 from mesh.standard import *
 from scheme import *
 
-class EntityBase(Resource):
+class Item(Resource):
+    """A contained entity."""
+
+    name = 'item'
+    version = 1
+
+    class schema:
+        id = Text(nonempty=True, operators='equal')
+        entity = Token(segments=2, readonly=True)
+        name = Text(readonly=True)
+
+class BaseEntity(Resource):
     """Base aspects of an entity."""
+
+    abstract = True
+    version = 1
 
     class schema:
         name = Text(nonempty=True, operators='equal contains icontains', annotational=True)
@@ -16,7 +30,7 @@ class EntityBase(Resource):
             'name': Text(readonly=True),
         }, nonnull=True), nonnull=True, deferred=True, annotational=True)
 
-class Entity(EntityBase):
+class Entity(Resource, BaseEntity[1]):
     """An entity."""
 
     name = 'entity'
