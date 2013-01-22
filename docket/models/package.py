@@ -15,4 +15,4 @@ class Package(Entity):
     is_container = True
 
     entity_id = ForeignKey(Entity.id, nullable=False, primary_key=True)
-    package = Text(nullable=False)
+    package = Text()

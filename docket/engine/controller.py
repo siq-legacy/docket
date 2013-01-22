@@ -8,66 +8,120 @@ from spire.mesh.controllers import FilterOperators
 from spire.schema import NoResultFound, SchemaDependency
 from sqlalchemy.sql import asc, desc
 
-class ProxyController(Unit, Controller):
-    """A mesh controller for resources proxied by docket."""
+class Proxy(Unit):
+    """An entity proxy."""
 
-    id = None
-    cached_attributes = None
-    client = None
-    created_is_proxied = False
-    fields = None
-    model = None
-    modified_is_proxied = False
-    registration = None
-
-    operators = FilterOperators()
     schema = SchemaDependency('docket')
 
-    def acquire(self, subject):
+    def __init__(self, id, identity, cached_attributes, client, fields, model, registration,
+            created_is_proxied=False, modified_is_proxied=False):
+
+        self.cached_attributes = cached_attributes
+        self.client = client
+        self.created_is_proxied = created_is_proxied
+        self.fields = fields
+        self.id = id
+        self.identity = identity
+        self.model = model
+        self.modified_is_proxied = modified_is_proxied
+        self.registration = registration
+
+    def __repr__(self):
+        return 'Proxy(%r)' % self.id
+
+    def acquire(self, id):
         try:
-            return self.schema.session.query(self.model).get(subject)
+            return self.schema.session.query(self.model).get(id)
         except NoResultFound:
             return None
 
-    def create(self, request, response, subject, data):
+    def create(self, data):
         returning = self.cached_attributes
         if self.created_is_proxied:
             returning = ['created'] + returning
 
-        payload = self._extract_data('create', data)
+        payload = self.extract_data('create', data)
         if returning:
             payload[RETURNING] = returning
 
-        try:
-            result = self._execute_request('create', data=payload)
-        except RequestError, exception:
-            return response(exception.status, exception.content)
-
+        result = self.execute_request('create', data=payload)
         params = result.content
+
         for attr, field in self.fields.iteritems():
             if attr in data:
                 params[attr] = data[attr]
 
         session = self.schema.session
-        subject = self.model.create(session, **params)
+        return self.model.create(session, **params)
 
-        session.commit()
+    def delete(self, subject, data=None):
+        self.execute_request('delete', subject.id, data)
+        self.schema.session.delete(subject)
+
+    def extract_data(self, request, data):
+        return self.client.extract(self.identity, request, data)
+
+    def execute_request(self, request, subject=None, data=None):
+        try:
+            return self.client.execute(self.identity, request, subject, data)
+        except ConnectionError:
+            raise BadGatewayError()
+
+    def update(self, subject, data):
+        if not data:
+            return
+
+        returning = self.cached_attributes
+        if self.modified_is_proxied:
+            returning = ['modified'] + returning
+
+        payload = self.extract_data('update', data)
+        if returning:
+            payload[RETURNING] = returning
+
+        result = self.execute_request('update', subject.id, payload)
+        params = result.content
+
+        for attr, field in self.fields.iteritems():
+            if attr in data:
+                params[attr] = data[attr]
+
+        session = self.schema.session
+        subject.update(session, **params)
+
+class ProxyController(Unit, Controller):
+    """A mesh controller for resources proxied by docket."""
+
+    proxy = None
+
+    operators = FilterOperators()
+    schema = SchemaDependency('docket')
+
+    def acquire(self, subject):
+        return self.proxy.acquire(subject)
+
+    def create(self, request, response, subject, data):
+        try:
+            subject = self.proxy.create(data)
+        except RequestError, exception:
+            return response(exception.status, exception.content)
+
+        self.schema.session.commit()
         response({'id': subject.id})
 
     def delete(self, request, response, subject, data):
         try:
-            result = self._execute_request('delete', subject.id, data)
+            self.proxy.delete(subject, data)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
-        self.schema.session.delete(subject)
         self.schema.session.commit()
         response({'id': subject.id})
 
     def get(self, request, response, subject, data):
-        payload = self._extract_data('get', data)
+        payload = self.proxy.extract_data('get', data)
         try:
-            result = self._execute_request('get', subject.id, payload)
+            result = self.proxy.execute_request('get', subject.id, payload)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
@@ -87,9 +141,9 @@ class ProxyController(Unit, Controller):
             self.create(request, response, subject, data)
 
     def query(self, request, response, subject, data):
-        attrs = self.fields.keys()
+        attrs = self.proxy.fields.keys()
         data = data or {}
-        query = self.schema.session.query(self.model)
+        query = self.schema.session.query(self.proxy.model)
 
         filters = data.get('query')
         if filters:
@@ -107,9 +161,13 @@ class ProxyController(Unit, Controller):
             query = query.offset(data['offset'])
 
         subjects = list(query.all())
+        if not subjects:
+            return response({'total': total, 'resources': []})
+
+        subjects = list(query.all())
         try:
             payload = {'identifiers': [subject.id for subject in subjects]}
-            result = self._execute_request('load', data=payload)
+            result = self.proxy.execute_request('load', data=payload)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
@@ -126,26 +184,10 @@ class ProxyController(Unit, Controller):
         if not data:
             return response({'id': subject.id})
 
-        returning = self.cached_attributes
-        if self.modified_is_proxied:
-            returning = ['modified'] + returning
-
-        payload = self._extract_data('update', data)
-        if returning:
-            payload[RETURNING] = returning
-
         try:
-            result = self._execute_request('update', subject.id, payload)
+            self.proxy.update(subject, data)
         except RequestError, exception:
             return response(exception.status, exception.content)
-
-        params = result.content
-        for attr, field in self.fields.iteritems():
-            if attr in data:
-                params[attr] = data[attr]
-
-        session = self.schema.session
-        subject.update(session, **params)
 
         self.schema.session.commit()
         response({'id': subject.id})
@@ -155,7 +197,7 @@ class ProxyController(Unit, Controller):
             resource['containers'] = model.describe_containers()
 
     def _construct_filters(self, query, filters):
-        model, operators = self.model, self.operators
+        model, operators = self.proxy.model, self.operators
         for filter, value in filters.iteritems():
             attr, operator = filter, 'equal'
             if '__' in filter:
@@ -167,6 +209,7 @@ class ProxyController(Unit, Controller):
         return query
 
     def _construct_sorting(self, query, sorting):
+        model = self.proxy.model
         columns = []
         for attr in sorting:
             direction = asc
@@ -176,16 +219,7 @@ class ProxyController(Unit, Controller):
                 attr = attr[:-1]
                 direction = desc
 
-            column = getattr(self.model, attr)
+            column = getattr(model, attr)
             columns.append(direction(column))
 
         return query.order_by(*columns)
-
-    def _extract_data(self, request, data):
-        return self.client.extract(self.id, request, data)
-
-    def _execute_request(self, request, subject=None, data=None):
-        try:
-            return self.client.execute(self.id, request, subject, data)
-        except ConnectionError:
-            raise BadGatewayError()

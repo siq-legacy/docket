@@ -92,4 +92,3 @@ class TestEntity(Entity):
         tablename = 'entity_test'
 
     entity_id = ForeignKey('entity.id', nullable=False, primary_key=True)
-

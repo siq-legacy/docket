@@ -18,7 +18,8 @@ class EntityRegistry(Unit):
     schema = SchemaDependency('docket')
 
     def __init__(self):
-        self.annotator = Annotator()
+        self.proxies = {}
+        self.annotator = Annotator(self.proxies)
         self.models = {}
 
     def bootstrap(self):

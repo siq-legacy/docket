@@ -11,4 +11,5 @@ class Package(Resource, BaseEntity[1]):
 
     class schema:
         id = Token(nonempty=True, oncreate=True, operators='equal')
-        package = Text(nonempty=True)
+        status = Enumeration('deployed undeployed', nullable=False, default='undeployed')
+        package = Text()

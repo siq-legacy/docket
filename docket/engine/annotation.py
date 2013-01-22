@@ -5,7 +5,7 @@ from mesh.standard import *
 from mesh.standard.requests import add_schema_field
 from scheme import *
 
-from docket.engine.controller import ProxyController
+from docket.engine.controller import Proxy, ProxyController
 from docket.resources import Entity
 
 __all__ = ('Annotation', 'Annotator')
@@ -19,14 +19,16 @@ class Annotation(object):
         resource = Resource
         controller = ProxyController
 
+        proxies = {}
         for version, description in cls._enumerate_versions(registration):
             resource_version = description['version'][0]
             if resource.version != resource_version:
                 resource = cls._construct_resource(registration, resource, description)
-            controller = cls._construct_controller(registration, resource, description,
-                controller, model)
+            proxy = cls._construct_proxy(registration, resource, description, model)
+            proxies[proxy.id] = proxy
+            controller = cls._construct_controller(resource, description, controller, proxy)
 
-        return mount(resource, controller)
+        return proxies, mount(resource, controller)
 
     @classmethod
     def _annotate_resource(cls, registration, resource):
@@ -35,7 +37,15 @@ class Annotation(object):
                 add_schema_field(resource, field)
 
     @classmethod
-    def _construct_controller(cls, registration, resource, description, controller, model):
+    def _construct_controller(cls, resource, description, controller, proxy):
+        return type('%sController' % resource.title, (controller,), {
+            'proxy': proxy,
+            'resource': resource,
+            'version': tuple(description['version']),
+        })
+
+    @classmethod
+    def _construct_proxy(cls, registration, resource, description, model):
         cached_attributes = []
         for name, attribute in registration.cached_attributes.iteritems():
             if name in resource.schema:
@@ -46,18 +56,12 @@ class Annotation(object):
             if field.annotational:
                 fields[name] = resource.schema[name]
 
-        return type('%sController' % resource.title, (controller,), {
-            'cached_attributes': cached_attributes,
-            'client': registration.client,
-            'created_is_proxied': (not fields['created'].annotational),
-            'fields': fields,
-            'id': description['id'],
-            'model': model,
-            'modified_is_proxied': (not fields['modified'].annotational),
-            'registration': registration,
-            'resource': resource,
-            'version': tuple(description['version']),
-        })
+        created_is_proxied = (not fields['created'].annotational)
+        modified_is_proxied = (not fields['modified'].annotational)
+
+        id = '%s:%d.%d' % (registration.id, description['version'][0], description['version'][1])
+        return Proxy(id, description['id'], cached_attributes, registration.client, fields,
+            model, registration, created_is_proxied, modified_is_proxied)
 
     @classmethod
     def _construct_resource(cls, registration, resource, description):
@@ -76,8 +80,9 @@ class Annotator(object):
 
     annotations = [Annotation]
 
-    def __init__(self):
+    def __init__(self, proxies=None):
         self.bundles = {}
+        self.proxies = proxies
 
     def generate_mounts(self):
         return [recursive_mount(bundle) for bundle in self.bundles.itervalues()]
@@ -91,5 +96,7 @@ class Annotator(object):
 
         bundle = self.bundles[bundle_name]
         for annotation in self.annotations:
-            mount = annotation.construct(registration, model)
+            proxies, mount = annotation.construct(registration, model)
+            if self.proxies is not None:
+                self.proxies.update(proxies)
             bundle[annotation.version].attach([mount])
