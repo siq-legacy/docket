@@ -1,6 +1,8 @@
+from spire.core import Dependency
 from spire.mesh import ModelController, field_included
-from spire.schema import SchemaDependency
+from spire.schema import NoResultFound, SchemaDependency
 
+from docket.engine.registry import EntityRegistry
 from docket.models import *
 from docket.resources import Entity as EntityResource
 
@@ -32,3 +34,17 @@ class EntityController(BaseEntityController):
     schema = SchemaDependency('docket')
     mapping = 'id entity name designation description created modified'
 
+    def task(self, request, response, subject, data):
+        session = self.schema.session
+        if 'id' in data:
+            try:
+                subject = self.model.load(session, id=data['id'], lockmode='update')
+            except NoResultFound:
+                return
+
+        task = data['task']
+        if task == 'synchronize-entities':
+            self.model.synchronize_entities(session)
+        elif task == 'synchronize-entity':
+            subject.synchronize(session)
+            session.commit()

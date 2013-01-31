@@ -36,6 +36,7 @@ class Registration(Model):
     url = Text(nullable=False)
     is_container = Boolean(nullable=False, default=False)
     specification = Serialized(nullable=False)
+    canonical_version = Text()
 
     cached_attributes = relationship('CachedAttribute', backref='registration',
         collection_class=attribute_mapped_collection('name'),
@@ -66,6 +67,19 @@ class Registration(Model):
         session.add(registration)
         return registration
 
+    def get_canonical_proxy(self, registry):
+        return registry.get_proxy(self.id, self.get_canonical_version())
+
+    def get_canonical_version(self):
+        if self.canonical_version:
+            return self.canonical_version
+
+        try:
+            return self._cached_canonical_version
+        except AttributeError:
+            self._cached_canonical_version = self._identify_latest_api_version()
+            return self._cached_canonical_version
+
     def update(self, session, cached_attributes=None, **params):
         changed = False
         for attr, value in params.iteritems():
@@ -85,6 +99,10 @@ class Registration(Model):
                     del collection[name]
 
         return changed
+
+    def _identify_latest_api_version(self):
+        versions = sorted(map(int, v.split('.')) for v in self.specification['versions'].keys())
+        return '%d.%d' % (tuple(versions[-1]))
 
 class CachedAttribute(Model):
     """An entity attribute."""

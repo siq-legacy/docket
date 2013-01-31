@@ -31,6 +31,9 @@ class EntityRegistry(Unit):
         from docket.bundles import API
         API.attach(self.annotator.generate_mounts())
 
+    def get_proxy(self, id, version):
+        return self.proxies['%s:%s' % (id, version)]
+
     def register(self, registration, changed=False):
         table = self._construct_table(registration)
         if changed or not self.schema.is_table_correct(table):

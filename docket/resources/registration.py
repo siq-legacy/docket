@@ -20,3 +20,4 @@ class Registration(Resource):
             'type': Token(segments=1, nonempty=True),
         }, nonnull=True), nonnull=True)
         specification = Field(nonempty=True)
+        canonical_version = Text()

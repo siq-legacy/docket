@@ -3,9 +3,12 @@ uwsgi:
   http-socket: 127.0.0.1:6464
   master: true
   module: spire.runtime.uwsgi
+  mule: 1
   need-app: true
   processes: 4
   threads: 10
+spire:
+  name: docket
 components:
   - docket.component.Docket
 configuration:

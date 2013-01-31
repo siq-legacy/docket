@@ -62,6 +62,13 @@ class Entity(Model):
         else:
             return description
 
+    def synchronize(self, registry, session):
+        pass
+
+    @classmethod
+    def synchronize_entities(cls, session):
+        pass
+
     def update(self, session, containers=None, **attrs):
         self.update_with_mapping(attrs)
         if 'modified' not in attrs:

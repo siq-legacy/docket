@@ -44,3 +44,17 @@ class Entity(Resource, BaseEntity[1]):
     class task:
         endpoint = ('TASK', 'entity')
         title = 'Initiating an entity task'
+        schema = Structure(
+            structure={
+                'synchronize-entities': {},
+                'synchronize-entity': {
+                    'id': UUID(nonempty=True),
+                },
+            },
+            nonempty=True,
+            polymorphic_on=Enumeration(['synchronize-entities', 'synchronize-entity'],
+                name='task', nonempty=True))
+        responses = {
+            OK: Response(),
+            INVALID: Response(Errors),
+        }

@@ -2,9 +2,9 @@ from spire.core import Dependency
 from spire.mesh import ModelController
 from spire.schema import SchemaDependency
 
+from docket.engine.registry import EntityRegistry
 from docket.models import *
 from docket.resources.registration import Registration as RegistrationResource
-from docket.engine.registry import EntityRegistry
 
 class RegistrationController(ModelController):
     resource = RegistrationResource
@@ -13,7 +13,7 @@ class RegistrationController(ModelController):
     model = Registration
     registry = Dependency(EntityRegistry)
     schema = SchemaDependency('docket')
-    mapping = 'id name title url is_container specification'
+    mapping = 'id name title url is_container specification canonical_version'
 
     def create(self, request, response, subject, data):
         session = self.schema.session

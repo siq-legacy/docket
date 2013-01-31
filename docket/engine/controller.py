@@ -36,6 +36,7 @@ class Proxy(Unit):
             return None
 
     def create(self, data):
+        # TODO: change this so that we flush the create to docket first, then attempt the request down
         returning = self.cached_attributes
         if self.created_is_proxied:
             returning = ['created'] + returning
@@ -45,18 +46,16 @@ class Proxy(Unit):
             payload[RETURNING] = returning
 
         result = self.execute_request('create', data=payload)
-        params = result.content
-
-        for attr, field in self.fields.iteritems():
-            if attr in data:
-                params[attr] = data[attr]
-
-        session = self.schema.session
-        return self.model.create(session, **params)
+        try:
+            return self._create_entity(result.content, data)
+        except Exception:
+            self._attempt_request('delete', result.content['id'])
+            raise
 
     def delete(self, subject, data=None):
-        self.execute_request('delete', subject.id, data)
         self.schema.session.delete(subject)
+        self.schema.session.flush()
+        self.execute_request('delete', subject.id, data)
 
     def extract_data(self, request, data):
         return self.client.extract(self.identity, request, data)
@@ -88,6 +87,28 @@ class Proxy(Unit):
 
         session = self.schema.session
         subject.update(session, **params)
+
+    def _attempt_request(self, request, subject=None, data=None):
+        try:
+            self.client.execute(self.identity, request, subject, data)
+        except Exception:
+            pass
+
+    def _create_entity(self, parameters, data):
+        for attr, field in self.fields.iteritems():
+            if attr in data:
+                parameters[attr] = data[attr]
+
+        session = self.schema.session
+        return self.model.create(session, **parameters)
+
+    def _update_entity(self, subject, parameters, data):
+        for attr, field in self.fields.iteritems():
+            if attr in data:
+                parameters[attr] = data[attr]
+
+        session = self.schema.session
+        subject.update(session, **parameters)
 
 class ProxyController(Unit, Controller):
     """A mesh controller for resources proxied by docket."""
