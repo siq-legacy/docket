@@ -1,2 +1,2 @@
-binding = ('platoon.API', '1.0')
-mixin_modules = ['platoon.binding']
+bundle = 'platoon.API'
+mixins = 'platoon.binding'

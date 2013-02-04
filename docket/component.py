@@ -12,9 +12,15 @@ from docket.resources import *
 
 class Docket(Component):
     api = MeshServer.deploy(bundles=[API])
+
+    docket = MeshDependency('docket')
+    platoon = MeshDependency('platoon')
     registry = Dependency(EntityRegistry)
 
     @onstartup()
     def bootstrap(self):
+        if not self.platoon.ping():
+            raise TemporaryStartupError()
+
         self.registry.bootstrap()
         self.api.server.configure_endpoints()

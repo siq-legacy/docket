@@ -13,7 +13,7 @@ class RegistrationController(ModelController):
     model = Registration
     registry = Dependency(EntityRegistry)
     schema = SchemaDependency('docket')
-    mapping = 'id name title url is_container specification canonical_version'
+    mapping = 'id name title url is_container specification canonical_version change_event'
 
     def create(self, request, response, subject, data):
         session = self.schema.session

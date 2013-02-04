@@ -24,6 +24,7 @@ class BaseEntity(Resource):
         description = Text(annotational=True)
         created = DateTime(utc=True, readonly=True, annotational=True)
         modified = DateTime(utc=True, readonly=True, annotational=True)
+        defunct = Boolean(operators='equal', readonly=True, annotational=True)
         containers = Sequence(Structure({
             'id': Text(nonempty=True),
             'entity': Token(segments=2, readonly=True),
@@ -49,6 +50,9 @@ class Entity(Resource, BaseEntity[1]):
                 'synchronize-entities': {},
                 'synchronize-entity': {
                     'id': UUID(nonempty=True),
+                },
+                'synchronize-changed-entity': {
+                    'event': Field(required=True, nonnull=True),
                 },
             },
             nonempty=True,

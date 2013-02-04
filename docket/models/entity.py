@@ -2,6 +2,7 @@ from mesh.standard import OperationError
 from scheme import current_timestamp
 from spire.schema import *
 from spire.support.logs import LogHelper
+from spire.util import uniqid
 
 from docket.models.registration import Registration
 
@@ -28,6 +29,7 @@ class Entity(Model):
     description = Text()
     created = DateTime(timezone=True, nullable=False)
     modified = DateTime(timezone=True, nullable=False)
+    defunct = Boolean(nullable=False, default=False)
 
     containers = relationship('Entity', secondary=ContainerMembership,
         backref=backref('members'),
@@ -40,6 +42,9 @@ class Entity(Model):
     @classmethod
     def create(cls, session, containers=None, **attrs):
         subject = cls(**attrs)
+        if not subject.id:
+            subject.id = uniqid()
+
         if subject.created:
             subject.modified = subject.created
         else:
@@ -72,7 +77,10 @@ class Entity(Model):
         proxy = registration.get_canonical_proxy(registry)
 
         resource = proxy.load(self.id)
-        
+        if resource:
+            self.update_with_mapping(resource, ignore='id')
+        else:
+            self.defunct = True
 
     @classmethod
     def synchronize_entities(cls, session):
@@ -80,8 +88,7 @@ class Entity(Model):
 
     def update(self, session, containers=None, **attrs):
         self.update_with_mapping(attrs)
-        if 'modified' not in attrs:
-            self.modified = current_timestamp()
+        self.modified = current_timestamp()
 
         if containers is not None:
             self.containers = self._validate_containers(session, containers)

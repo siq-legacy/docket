@@ -36,7 +36,12 @@ class Proxy(Unit):
             return None
 
     def create(self, data):
-        # TODO: change this so that we flush the create to docket first, then attempt the request down
+        session = self.schema.session
+        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
+
+        subject = self.model.create(session, **attrs)
+        session.flush()
+
         returning = self.cached_attributes
         if self.created_is_proxied:
             returning = ['created'] + returning
@@ -45,17 +50,31 @@ class Proxy(Unit):
         if returning:
             payload[RETURNING] = returning
 
+        payload['id'] = subject.id
         result = self.execute_request('create', data=payload)
+
+        attrs = result.content
+        if self.created_is_proxied:
+            attrs['modified'] = attrs['created']
+
+        attrs.pop('id', None)
         try:
-            return self._create_entity(result.content, data)
+            subject.update_with_mapping(attrs)
         except Exception:
-            self._attempt_request('delete', result.content['id'])
+            self._attempt_request('delete', subject.id)
             raise
+        else:
+            return subject
 
     def delete(self, subject, data=None):
-        self.schema.session.delete(subject)
-        self.schema.session.flush()
-        self.execute_request('delete', subject.id, data)
+        session = self.schema.session
+        session.delete(subject)
+
+        session.flush()
+        try:
+            self.execute_request('delete', subject.id, data)
+        except GoneError:
+            pass
 
     def extract_data(self, request, data):
         return self.client.extract(self.identity, request, data)
@@ -76,7 +95,7 @@ class Proxy(Unit):
         results = self.execute_request('load', data=payload)
 
         if single:
-            return (results[0] if len(results) == 1 else None)
+            return results[0]
         else:
             return results
 
@@ -84,45 +103,42 @@ class Proxy(Unit):
         if not data:
             return
 
+        session = self.schema.session
+        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
+
+        subject.update(session, **attrs)
+        session.flush()
+
         returning = self.cached_attributes
         if self.modified_is_proxied:
             returning = ['modified'] + returning
 
         payload = self.extract_data('update', data)
+        if not payload:
+            return
         if returning:
             payload[RETURNING] = returning
 
-        result = self.execute_request('update', subject.id, payload)
-        params = result.content
+        try:
+            result = self.execute_request('update', subject.id, payload)
+        except GoneError:
+            subject.defunct = True
+            return
 
-        for attr, field in self.fields.iteritems():
-            if attr in data:
-                params[attr] = data[attr]
+        attrs = result.content
+        attrs.pop('id', None)
 
-        session = self.schema.session
-        subject.update(session, **params)
+        try:
+            subject.update_with_mapping(attrs)
+        except Exception:
+            # schedule sync here
+            pass
 
     def _attempt_request(self, request, subject=None, data=None):
         try:
             self.client.execute(self.identity, request, subject, data)
         except Exception:
             pass
-
-    def _create_entity(self, parameters, data):
-        for attr, field in self.fields.iteritems():
-            if attr in data:
-                parameters[attr] = data[attr]
-
-        session = self.schema.session
-        return self.model.create(session, **parameters)
-
-    def _update_entity(self, subject, parameters, data):
-        for attr, field in self.fields.iteritems():
-            if attr in data:
-                parameters[attr] = data[attr]
-
-        session = self.schema.session
-        subject.update(session, **parameters)
 
 class ProxyController(Unit, Controller):
     """A mesh controller for resources proxied by docket."""
@@ -157,11 +173,14 @@ class ProxyController(Unit, Controller):
         payload = self.proxy.extract_data('get', data)
         try:
             result = self.proxy.execute_request('get', subject.id, payload)
+        except GoneError:
+            resource = {'id': subject.id, 'defunct': True}
         except RequestError, exception:
             return response(exception.status, exception.content)
+        else:
+            resource = result.content
 
-        resource = result.content
-        for attr, field in self.fields.iteritems():
+        for attr in self.fields.iterkeys():
             if attr not in resource:
                 resource[attr] = getattr(subject, attr)
 
@@ -199,19 +218,21 @@ class ProxyController(Unit, Controller):
         if not subjects:
             return response({'total': total, 'resources': []})
 
-        subjects = list(query.all())
+        payload = {'identifiers': [subject.id for subject in subjects]}
         try:
-            payload = {'identifiers': [subject.id for subject in subjects]}
             result = self.proxy.execute_request('load', data=payload)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
-        resources = result.content
-        for resource, subject in zip(resources, subjects):
+        resources = []
+        for resource, subject in zip(result.content, subjects):
+            if not resource:
+                resource = {'id': subject.id, 'defunct': True}
             for attr in attrs:
                 if attr not in resource:
                     resource[attr] = getattr(subject, attr)
             self._annotate_resource(request, subject, resource, data)
+            resources.append(resource)
 
         response({'total': total, 'resources': resources})
 

@@ -15,9 +15,11 @@ class Registration(Resource):
         name = Token(segments=1, nonempty=True, operators='equal')
         title = Text(nonempty=True, operators='equal')
         url = Text(nonempty=True)
+        specification = Field(nonempty=True)
         is_container = Boolean(nonnull=True, default=False)
+        canonical_version = Text()
+        change_event = Token()
         cached_attributes = Map(Structure({
             'type': Token(segments=1, nonempty=True),
         }, nonnull=True), nonnull=True)
-        specification = Field(nonempty=True)
-        canonical_version = Text()
+

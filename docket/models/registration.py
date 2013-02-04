@@ -37,6 +37,7 @@ class Registration(Model):
     is_container = Boolean(nullable=False, default=False)
     specification = Serialized(nullable=False)
     canonical_version = Text()
+    change_event = Text()
 
     cached_attributes = relationship('CachedAttribute', backref='registration',
         collection_class=attribute_mapped_collection('name'),

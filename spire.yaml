@@ -17,6 +17,9 @@ configuration:
   mesh:docket:
     bundle: docket.API
     url: http://localhost:6464/
+  mesh:platoon:
+    bundle: platoon.API
+    url: http://localhost:4321/
   schema:docket:
     admin_url: postgresql://postgres@localhost/postgres
     hstore: true

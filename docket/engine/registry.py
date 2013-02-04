@@ -1,20 +1,29 @@
 import re
+import uuid
 
-from mesh.standard import Resource
+from mesh.standard import Resource, bind
 from spire.core import Unit
+from spire.mesh import MeshDependency
 from spire.runtime import current_runtime
 from spire.schema import *
 from spire.support.logs import LogHelper
+from spire.util import nsuniqid
 from sqlalchemy import MetaData
 
+from docket.bindings import platoon
 from docket.engine.annotation import Annotator
 from docket.models import Entity, Registration
 
+TASK_UUID_NAMESPACE = uuid.UUID('49be9141-1865-4d33-872b-b5a0b34b3017')
+
 log = LogHelper('docket')
+SubscribedTask = bind(platoon, 'platoon/1.0/subscribedtask')
 
 class EntityRegistry(Unit):
     """The entity registry."""
 
+    docket = MeshDependency('docket')
+    platoon = MeshDependency('platoon')
     schema = SchemaDependency('docket')
 
     def __init__(self):
@@ -27,6 +36,8 @@ class EntityRegistry(Unit):
         for registration in session.query(Registration):
             model = self.models[registration.id] = self._construct_model(registration)
             self.annotator.process(registration, model)
+            if registration.change_event:
+                self._subscribe_to_changes(registration)
 
         from docket.bundles import API
         API.attach(self.annotator.generate_mounts())
@@ -81,3 +92,13 @@ class EntityRegistry(Unit):
     def _prepare_tablename(self, id):
         tablename = id.lower().replace(':', '_')
         return 'entity_' + re.sub(r'[^a-z_]', '', tablename).strip('_')
+
+    def _subscribe_to_changes(self, registration):
+        task = self.docket.prepare('docket/1.0/entity', 'task', None,
+            {'task': 'synchronize-changed-entity'})
+
+        SubscribedTask(
+            id=nsuniqid(TASK_UUID_NAMESPACE, registration.id),
+            tag='%s changes' % registration.id,
+            topic=registration.change_event,
+            task=SubscribedTask.prepare_http_task(task)).put()
