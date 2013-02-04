@@ -66,6 +66,20 @@ class Proxy(Unit):
         except ConnectionError:
             raise BadGatewayError()
 
+    def load(self, identifiers):
+        single = False
+        if isinstance(identifiers, basestring):
+            identifiers = [identifiers]
+            single = True
+
+        payload = {'identifiers': identifiers}
+        results = self.execute_request('load', data=payload)
+
+        if single:
+            return (results[0] if len(results) == 1 else None)
+        else:
+            return results
+
     def update(self, subject, data):
         if not data:
             return

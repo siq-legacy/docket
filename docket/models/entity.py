@@ -3,6 +3,8 @@ from scheme import current_timestamp
 from spire.schema import *
 from spire.support.logs import LogHelper
 
+from docket.models.registration import Registration
+
 log = LogHelper('docket')
 schema = Schema('docket')
 
@@ -62,8 +64,15 @@ class Entity(Model):
         else:
             return description
 
+    def get_registration(self, session):
+        return session.query(Registration).get(self.entity)
+
     def synchronize(self, registry, session):
-        pass
+        registration = self.get_registration(session)
+        proxy = registration.get_canonical_proxy(registry)
+
+        resource = proxy.load(self.id)
+        
 
     @classmethod
     def synchronize_entities(cls, session):

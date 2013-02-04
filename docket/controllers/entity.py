@@ -31,6 +31,7 @@ class EntityController(BaseEntityController):
     version = (1, 0)
 
     model = Entity
+    registry = Dependency(EntityRegistry)
     schema = SchemaDependency('docket')
     mapping = 'id entity name designation description created modified'
 
@@ -44,7 +45,7 @@ class EntityController(BaseEntityController):
 
         task = data['task']
         if task == 'synchronize-entities':
-            self.model.synchronize_entities(session)
+            self.model.synchronize_entities(registry, session)
         elif task == 'synchronize-entity':
-            subject.synchronize(session)
+            subject.synchronize(registry, session)
             session.commit()
