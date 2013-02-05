@@ -36,16 +36,29 @@ class EntityController(BaseEntityController):
     mapping = 'id entity name designation description created modified'
 
     def task(self, request, response, subject, data):
+        registry = self.registry
         session = self.schema.session
-        if 'id' in data:
-            try:
-                subject = self.model.load(session, id=data['id'], lockmode='update')
-            except NoResultFound:
-                return
 
         task = data['task']
         if task == 'synchronize-entities':
             self.model.synchronize_entities(registry, session)
         elif task == 'synchronize-entity':
-            subject.synchronize(registry, session)
-            session.commit()
+            try:
+                subject = self.model.load(session, id=data['id'], lockmode='update')
+            except NoResultFound:
+                return
+            else:
+                subject.synchronize(registry, session)
+                session.commit()
+        elif task == 'synchronize-changed-entity':
+            event = data.get('event')
+            if not event:
+                return
+
+            try:
+                subject = self.model.load(session, id=event['id'], lockmode='update')
+            except NoResultFound:
+                return
+            else:
+                subject.synchronize(registry, session)
+                session.commit()

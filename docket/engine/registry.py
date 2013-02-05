@@ -97,6 +97,8 @@ class EntityRegistry(Unit):
         task = self.docket.prepare('docket/1.0/entity', 'task', None,
             {'task': 'synchronize-changed-entity'})
 
+        task['injections'] = ['event']
+
         SubscribedTask(
             id=nsuniqid(TASK_UUID_NAMESPACE, registration.id),
             tag='%s changes' % registration.id,

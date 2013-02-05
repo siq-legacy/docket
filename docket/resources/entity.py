@@ -52,12 +52,15 @@ class Entity(Resource, BaseEntity[1]):
                     'id': UUID(nonempty=True),
                 },
                 'synchronize-changed-entity': {
-                    'event': Field(required=True, nonnull=True),
+                    'event': Structure({
+                        'topic': Text(nonempty=True),
+                        'id': UUID(nonempty=True),
+                    }, nonnull=True, strict=False),
                 },
             },
             nonempty=True,
-            polymorphic_on=Enumeration(['synchronize-entities', 'synchronize-entity'],
-                name='task', nonempty=True))
+            polymorphic_on=Enumeration(['synchronize-changed-entity', 'synchronize-entities',
+                'synchronize-entity'], name='task', nonempty=True))
         responses = {
             OK: Response(),
             INVALID: Response(Errors),
