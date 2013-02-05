@@ -35,6 +35,21 @@ class Proxy(Unit):
         except NoResultFound:
             return None
 
+    def annotate_payload(self, payload):
+        # this function is a hack
+        if not payload:
+            return
+        if 'include' in payload and 'containers' in payload['include']:
+            payload['include'].remove('containers')
+
+    def construct_resource(self, subject, resource, data):
+        if field_included(data, 'containers'):
+            resource['containers'] = subject.describe_containers()
+
+        for attr, field in self.fields.iteritems():
+            if attr not in resource and not field.deferred:
+                resource[attr] = getattr(subject, attr)
+
     def create(self, data):
         session = self.schema.session
         attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
@@ -84,6 +99,20 @@ class Proxy(Unit):
             return self.client.execute(self.identity, request, subject, data)
         except ConnectionError:
             raise BadGatewayError()
+
+    def get(self, subject, data=None):
+        payload = self.extract_data('get', data)
+        self.annotate_payload(payload)
+
+        try:
+            result = self.execute_request('get', subject.id, payload)
+        except GoneError:
+            resource = {'id': subject.id, 'defunct': True}
+        else:
+            resource = result.content
+
+        self.construct_resource(subject, resource, data)
+        return resource
 
     def load(self, identifiers):
         single = False
@@ -170,22 +199,10 @@ class ProxyController(Unit, Controller):
         response({'id': subject.id})
 
     def get(self, request, response, subject, data):
-        payload = self.proxy.extract_data('get', data)
         try:
-            result = self.proxy.execute_request('get', subject.id, payload)
-        except GoneError:
-            resource = {'id': subject.id, 'defunct': True}
+            response(self.proxy.get(subject, data))
         except RequestError, exception:
-            return response(exception.status, exception.content)
-        else:
-            resource = result.content
-
-        for attr in self.fields.iterkeys():
-            if attr not in resource:
-                resource[attr] = getattr(subject, attr)
-
-        self._annotate_resource(request, subject, resource, data)
-        response(resource)
+            response(exception.status, exception.content)
 
     def put(self, request, response, subject, data):
         if subject:
@@ -195,7 +212,9 @@ class ProxyController(Unit, Controller):
             self.create(request, response, subject, data)
 
     def query(self, request, response, subject, data):
-        attrs = self.proxy.fields.keys()
+        # todo: needs to use data to request deferred fields via load
+        proxy = self.proxy
+        attrs = proxy.fields.keys()
         data = data or {}
         query = self.schema.session.query(self.proxy.model)
 
@@ -219,8 +238,12 @@ class ProxyController(Unit, Controller):
             return response({'total': total, 'resources': []})
 
         payload = {'identifiers': [subject.id for subject in subjects]}
+        if 'include' in data:
+            payload['include'] = list(data['include'])
+
+        proxy.annotate_payload(payload)
         try:
-            result = self.proxy.execute_request('load', data=payload)
+            result = proxy.execute_request('load', data=payload)
         except RequestError, exception:
             return response(exception.status, exception.content)
 
@@ -228,10 +251,8 @@ class ProxyController(Unit, Controller):
         for resource, subject in zip(result.content, subjects):
             if not resource:
                 resource = {'id': subject.id, 'defunct': True}
-            for attr in attrs:
-                if attr not in resource:
-                    resource[attr] = getattr(subject, attr)
-            self._annotate_resource(request, subject, resource, data)
+
+            proxy.construct_resource(subject, resource, data)
             resources.append(resource)
 
         response({'total': total, 'resources': resources})
@@ -247,10 +268,6 @@ class ProxyController(Unit, Controller):
 
         self.schema.session.commit()
         response({'id': subject.id})
-
-    def _annotate_resource(self, request, model, resource, data):
-        if field_included(data, 'containers'):
-            resource['containers'] = model.describe_containers()
 
     def _construct_filters(self, query, filters):
         model, operators = self.proxy.model, self.operators
