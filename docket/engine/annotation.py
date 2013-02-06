@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from mesh.bundle import Bundle, mount, recursive_mount
+from mesh.resource import Controller
 from mesh.standard import *
 from mesh.standard.requests import add_schema_field
 from scheme import *
@@ -23,12 +24,31 @@ class Annotation(object):
         for version, description in cls._enumerate_versions(registration):
             resource_version = description['version'][0]
             if resource.version != resource_version:
-                resource = cls._construct_resource(registration, resource, description)
+                resource = cls._construct_resource(registration.as_resource(),
+                    resource, description)
+
             proxy = cls._construct_proxy(registration, resource, description, model)
             proxies[proxy.id] = proxy
             controller = cls._construct_controller(resource, description, controller, proxy)
 
         return proxies, mount(resource, controller)
+
+    @classmethod
+    def static_construct(cls, registration):
+        resource = Resource
+        controller = Controller
+
+        for version, resources in sorted(registration['specification']['versions'].iteritems()):
+            description = resources[registration['name']]
+            if resource.version != description['version'][0]:
+                resource = cls._construct_resource(registration, resource, description)
+
+            controller = type('%sController' % resource.title, (controller,), {
+                'resource': resource,
+                'version': tuple(description['version']),
+            })
+
+        return mount(resource, controller)
 
     @classmethod
     def _annotate_resource(cls, registration, resource):
@@ -99,4 +119,27 @@ class Annotator(object):
             proxies, mount = annotation.construct(registration, model)
             if self.proxies is not None:
                 self.proxies.update(proxies)
+            bundle[annotation.version].attach([mount])
+
+class StaticAnnotator(object):
+    """A static resource annotator."""
+
+    annotations = [Annotation]
+
+    def __init__(self):
+        self.bundles = {}
+
+    def generate_mounts(self):
+        return [recursive_mount(bundle) for bundle in self.bundles.itervalues()]
+
+    def process(self, registration):
+        bundle_name = registration['specification']['name']
+        if bundle_name not in self.bundles:
+            self.bundles[bundle_name] = {}
+            for annotation in self.annotations:
+                self.bundles[bundle_name][annotation.version] = Bundle(bundle_name)
+
+        bundle = self.bundles[bundle_name]
+        for annotation in self.annotations:
+            mount = annotation.static_construct(registration)
             bundle[annotation.version].attach([mount])
