@@ -57,6 +57,14 @@ class Registration(Model):
     def annotate(self, model):
         model.is_container = self.is_container
 
+    def as_resource(self):
+        cached_attributes = {}
+        for name, attribute in self.cached_attributes.iteritems():
+            cached_attributes[name] = attribute.extract_dict(
+                exclude='id registration_id name')
+
+        return self.extract_dict(cached_attributes=cached_attributes)
+
     @classmethod
     def create(cls, session, cached_attributes=None, **params):
         registration = cls(**params)
