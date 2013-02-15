@@ -5,6 +5,7 @@ import re
 from spire.mesh.units import construct_mesh_client
 from spire.schema import *
 from spire.support.logs import LogHelper
+from sqlalchemy.orm import deferred
 from sqlalchemy.orm.collections import attribute_mapped_collection
 
 __all__ = ('CachedAttribute', 'Registration')
@@ -35,7 +36,7 @@ class Registration(Model):
     title = Text(nullable=False)
     url = Text(nullable=False)
     is_container = Boolean(nullable=False, default=False)
-    specification = Serialized(nullable=False)
+    specification = deferred(Serialized(nullable=False))
     canonical_version = Text()
     change_event = Text()
 
@@ -88,6 +89,10 @@ class Registration(Model):
         except AttributeError:
             self._cached_canonical_version = self._identify_latest_api_version()
             return self._cached_canonical_version
+
+    def lock(self, session, exclusive=False):
+        session.refresh(self, lockmode=('update' if exclusive else 'read'))
+        return self
 
     def update(self, session, cached_attributes=None, **params):
         changed = False

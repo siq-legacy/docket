@@ -11,6 +11,7 @@ from sqlalchemy.sql import asc, desc
 class Proxy(Unit):
     """An entity proxy."""
 
+    operators = FilterOperators()
     schema = SchemaDependency('docket')
 
     def __init__(self, id, identity, cached_attributes, client, fields, model, registration,
@@ -52,8 +53,9 @@ class Proxy(Unit):
 
     def create(self, data):
         session = self.schema.session
-        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
+        self._acquire_registration_lock(session)
 
+        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
         subject = self.model.create(session, **attrs)
         session.flush()
 
@@ -81,11 +83,17 @@ class Proxy(Unit):
         else:
             return subject
 
+    def count(self):
+        response = self.execute_request('query', data={'total': True})
+        return response.content['total']
+
     def delete(self, subject, data=None):
         session = self.schema.session
-        session.delete(subject)
+        self._acquire_registration_lock(session)
 
+        session.delete(subject)
         session.flush()
+
         try:
             self.execute_request('delete', subject.id, data)
         except GoneError:
@@ -114,6 +122,21 @@ class Proxy(Unit):
         self.construct_resource(subject, resource, data)
         return resource
 
+    def iterate(self, limit, fields=None):
+        total = self.count()
+        offset = 0
+
+        while offset < total:
+            payload = {'offset': offset, 'limit': limit}
+            if fields:
+                payload['fields'] = fields
+
+            response = self.execute_request('query', data=payload)
+            for resource in response.content['resources']:
+                yield resource
+            else:
+                offset += limit
+
     def load(self, identifiers):
         single = False
         if isinstance(identifiers, basestring):
@@ -128,13 +151,56 @@ class Proxy(Unit):
         else:
             return results
 
+    def query(self, data=None):
+        # todo: needs to use data to request deferred fields via load
+        attrs = self.fields.keys()
+        data = data or {}
+        query = self.schema.session.query(self.model)
+
+        filters = data.get('query')
+        if filters:
+            query = self._construct_filters(query, filters)
+
+        total = query.count()
+        if data.get('total'):
+            return {'total': total}
+
+        if 'sort' in data:
+            query = self._construct_sorting(query, data['sort'])
+        if 'limit' in data:
+            query = query.limit(data['limit'])
+        if 'offset' in data:
+            query = query.offset(data['offset'])
+
+        subjects = list(query.all())
+        if not subjects:
+            return {'total': total, 'resources': []}
+
+        payload = {'identifiers': [subject.id for subject in subjects]}
+        if 'include' in data:
+            payload['include'] = list(data['include'])
+
+        self.annotate_payload(payload)
+        result = self.execute_request('load', data=payload)
+
+        resources = []
+        for resource, subject in zip(result.content, subjects):
+            if not resource:
+                resource = {'id': subject.id, 'defunct': True}
+
+            self.construct_resource(subject, resource, data)
+            resources.append(resource)
+
+        return {'total': total, 'resources': resources}
+
     def update(self, subject, data):
         if not data:
             return
 
         session = self.schema.session
-        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
+        self._acquire_registration_lock(session)
 
+        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
         subject.update(session, **attrs)
         session.flush()
 
@@ -163,18 +229,48 @@ class Proxy(Unit):
             # schedule sync here
             pass
 
+    def _acquire_registration_lock(self, session):
+        registration = session.merge(self.registration, load=False)
+        return registration.lock(session)
+
     def _attempt_request(self, request, subject=None, data=None):
         try:
             self.client.execute(self.identity, request, subject, data)
         except Exception:
             pass
 
+    def _construct_filters(self, query, filters):
+        model, operators = self.model, self.operators
+        for filter, value in filters.iteritems():
+            attr, operator = filter, 'equal'
+            if '__' in filter:
+                attr, operator = filter.rsplit('__', 1)
+
+            constructor = getattr(operators, operator + '_op')
+            query = constructor(query, getattr(model, attr), value)
+
+        return query
+
+    def _construct_sorting(self, query, sorting):
+        model = self.model
+        columns = []
+        for attr in sorting:
+            direction = asc
+            if attr[-1] == '+':
+                attr = attr[:-1]
+            elif attr[-1] == '-':
+                attr = attr[:-1]
+                direction = desc
+
+            column = getattr(model, attr)
+            columns.append(direction(column))
+
+        return query.order_by(*columns)
+
 class ProxyController(Unit, Controller):
     """A mesh controller for resources proxied by docket."""
 
     proxy = None
-
-    operators = FilterOperators()
     schema = SchemaDependency('docket')
 
     def acquire(self, subject):
@@ -212,50 +308,10 @@ class ProxyController(Unit, Controller):
             self.create(request, response, subject, data)
 
     def query(self, request, response, subject, data):
-        # todo: needs to use data to request deferred fields via load
-        proxy = self.proxy
-        attrs = proxy.fields.keys()
-        data = data or {}
-        query = self.schema.session.query(self.proxy.model)
-
-        filters = data.get('query')
-        if filters:
-            query = self._construct_filters(query, filters)
-
-        total = query.count()
-        if data.get('total'):
-            return response({'total': total})
-
-        if 'sort' in data:
-            query = self._construct_sorting(query, data['sort'])
-        if 'limit' in data:
-            query = query.limit(data['limit'])
-        if 'offset' in data:
-            query = query.offset(data['offset'])
-
-        subjects = list(query.all())
-        if not subjects:
-            return response({'total': total, 'resources': []})
-
-        payload = {'identifiers': [subject.id for subject in subjects]}
-        if 'include' in data:
-            payload['include'] = list(data['include'])
-
-        proxy.annotate_payload(payload)
         try:
-            result = proxy.execute_request('load', data=payload)
+            response(self.proxy.query(data))
         except RequestError, exception:
-            return response(exception.status, exception.content)
-
-        resources = []
-        for resource, subject in zip(result.content, subjects):
-            if not resource:
-                resource = {'id': subject.id, 'defunct': True}
-
-            proxy.construct_resource(subject, resource, data)
-            resources.append(resource)
-
-        response({'total': total, 'resources': resources})
+            response(exception.status, exception.content)
 
     def update(self, request, response, subject, data):
         if not data:
@@ -269,30 +325,3 @@ class ProxyController(Unit, Controller):
         self.schema.session.commit()
         response({'id': subject.id})
 
-    def _construct_filters(self, query, filters):
-        model, operators = self.proxy.model, self.operators
-        for filter, value in filters.iteritems():
-            attr, operator = filter, 'equal'
-            if '__' in filter:
-                attr, operator = filter.rsplit('__', 1)
-
-            constructor = getattr(operators, operator + '_op')
-            query = constructor(query, getattr(model, attr), value)
-
-        return query
-
-    def _construct_sorting(self, query, sorting):
-        model = self.proxy.model
-        columns = []
-        for attr in sorting:
-            direction = asc
-            if attr[-1] == '+':
-                attr = attr[:-1]
-            elif attr[-1] == '-':
-                attr = attr[:-1]
-                direction = desc
-
-            column = getattr(model, attr)
-            columns.append(direction(column))
-
-        return query.order_by(*columns)

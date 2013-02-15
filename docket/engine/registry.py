@@ -9,6 +9,7 @@ from spire.schema import *
 from spire.support.logs import LogHelper
 from spire.util import nsuniqid
 from sqlalchemy import MetaData
+from sqlalchemy.orm import undefer
 
 from docket.bindings import platoon
 from docket.engine.annotation import Annotator
@@ -33,7 +34,7 @@ class EntityRegistry(Unit):
 
     def bootstrap(self):
         session = self.schema.session
-        for registration in session.query(Registration):
+        for registration in session.query(Registration).options(undefer('specification')):
             model = self.models[registration.id] = self._construct_model(registration)
             self.annotator.process(registration, model)
             if registration.change_event:

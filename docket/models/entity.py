@@ -83,8 +83,16 @@ class Entity(Model):
             self.defunct = True
 
     @classmethod
-    def synchronize_entities(cls, session):
-        pass
+    def synchronize_entities(cls, registry, session):
+        registrations = list(session.query(Registration))
+        for registration in registrations:
+            registration.lock(session, True)
+            try:
+                self._synchronize_entities(session, registration)
+            except Exception:
+                session.rollback()
+            else:
+                session.commit()
 
     def update(self, session, containers=None, **attrs):
         self.update_with_mapping(attrs)
@@ -92,6 +100,20 @@ class Entity(Model):
 
         if containers is not None:
             self.containers = self._validate_containers(session, containers)
+
+    @classmethod
+    def _synchronize_entities(cls, registry, session, registration):
+        query = session.query(cls)
+        identifiers = set()
+
+        proxy = registration.get_canonical_proxy(registry)
+        for resource in proxy.iterate(2000):
+            entity = query.get(resource['id'])
+            if entity:
+                entity.update_with_mapping(resource, ignore='id')
+                identifiers.add(resource['id'])
+            else:
+                pass # delete remote resource
 
     @classmethod
     def _validate_containers(cls, session, containers):

@@ -23,3 +23,17 @@ class Registration(Resource):
             'type': Token(segments=1, nonempty=True),
         }, nonnull=True), nonnull=True)
 
+    class task:
+        endpoint = ('TASK', 'registration')
+        title = 'Initiating a registration task'
+        schema = Structure(
+            structure={
+                'synchronize-entities': {},
+            },
+            nonempty=True,
+            polymorphic_on=Enumeration(['synchronize-entities'],
+                name='task', nonempty=True))
+        responses = {
+            OK: Response(),
+            INVALID: Response(Errors),
+        }

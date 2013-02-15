@@ -1,6 +1,7 @@
 from spire.core import Dependency
 from spire.mesh import ModelController
 from spire.schema import SchemaDependency
+from sqlalchemy.orm import undefer
 
 from docket.engine.registry import EntityRegistry
 from docket.models import *
@@ -14,6 +15,13 @@ class RegistrationController(ModelController):
     registry = Dependency(EntityRegistry)
     schema = SchemaDependency('docket')
     mapping = 'id name title url is_container specification canonical_version change_event'
+
+    def acquire(self, subject):
+        try:
+            query = self.schema.session.query(self.model).options(undefer('specification'))
+            return query.get(subject)
+        except NoResultFound:
+            return None
 
     def create(self, request, response, subject, data):
         session = self.schema.session
