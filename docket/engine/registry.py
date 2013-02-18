@@ -36,9 +36,13 @@ class EntityRegistry(Unit):
         session = self.schema.session
         for registration in session.query(Registration).options(undefer('specification')):
             model = self.models[registration.id] = self._construct_model(registration)
+            registration.create_standard_entities(session, model)
+
             self.annotator.process(registration, model)
             if registration.change_event:
                 self._subscribe_to_changes(registration)
+
+        session.commit()
 
         from docket.bundles import API
         API.attach(self.annotator.generate_mounts())

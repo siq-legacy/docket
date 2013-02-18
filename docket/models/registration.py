@@ -39,6 +39,7 @@ class Registration(Model):
     specification = deferred(Serialized(nullable=False))
     canonical_version = Text()
     change_event = Text()
+    standard_entities = Json()
 
     cached_attributes = relationship('CachedAttribute', backref='registration',
         collection_class=attribute_mapped_collection('name'),
@@ -69,13 +70,25 @@ class Registration(Model):
     @classmethod
     def create(cls, session, cached_attributes=None, **params):
         registration = cls(**params)
-        
         if cached_attributes:
             for name, attribute in cached_attributes.iteritems():
                 registration.cached_attributes[name] = CachedAttribute(name=name, **attribute)
 
         session.add(registration)
         return registration
+
+    def create_standard_entities(self, session, model):
+        entities = self.standard_entities
+        if not entities:
+            return
+
+        for entity in entities:
+            try:
+                subject = model.load(session, id=entity['id'])
+            except NoResultFound:
+                model.create(session, **entity)
+            else:
+                model.update_with_mapping(entity, ignore='id')
 
     def get_canonical_proxy(self, registry):
         return registry.get_proxy(self.id, self.get_canonical_version())

@@ -1,7 +1,11 @@
 from mesh.standard import *
 from scheme import *
 
+from docket.resources.entity import Entity
+
 __all__ = ('Registration',)
+
+StandardEntity = Structure(Entity[1].mirror_schema('entity defunct'))
 
 class Registration(Resource):
     """An entity registration."""
@@ -22,6 +26,7 @@ class Registration(Resource):
         cached_attributes = Map(Structure({
             'type': Token(segments=1, nonempty=True),
         }, nonnull=True), nonnull=True)
+        standard_entities = Sequence(StandardEntity)
 
     class task:
         endpoint = ('TASK', 'registration')

@@ -36,7 +36,7 @@ class Entity(Resource, BaseEntity[1]):
 
     name = 'entity'
     version = 1
-    requests = 'get put query'
+    requests = 'get query'
 
     class schema:
         id = Text(nonempty=True, operators='equal')
