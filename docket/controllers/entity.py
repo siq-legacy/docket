@@ -1,3 +1,4 @@
+from mesh.standard import OperationError
 from spire.core import Dependency
 from spire.mesh import ModelController, field_included
 from spire.schema import NoResultFound, SchemaDependency
@@ -34,6 +35,21 @@ class EntityController(BaseEntityController):
     registry = Dependency(EntityRegistry)
     schema = SchemaDependency('docket')
     mapping = 'id entity name designation description created modified'
+
+    def put(self, request, response, subject, data):
+        model = self.registry.models.get(data['entity'])
+        if not model:
+            raise OperationError('unknown-entity')
+
+        session = self.schema.session
+        if subject:
+            subject.update(session, **data)
+        else:
+            data['id'] = request.subject
+            subject = model.create(session, **data)
+
+        session.commit()
+        response({'id': subject.id})
 
     def task(self, request, response, subject, data):
         registry = self.registry

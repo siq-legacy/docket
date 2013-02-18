@@ -6,6 +6,8 @@ setup(
     version='0.0.1',
     packages=enumerate_packages('docket'),
     package_data={
+        'docket': ['migrations/env.py', 'migrations/script.py.mako',
+            'migrations/version/*.py'],
         'docket.bindings': ['*.mesh'],
     }
 )

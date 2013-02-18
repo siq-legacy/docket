@@ -73,17 +73,21 @@ class Entity(Model):
         return session.query(Registration).get(self.entity)
 
     def synchronize(self, registry, session):
+        """Synchronize this entity with its contributing component."""
+
         registration = self.get_registration(session)
         proxy = registration.get_canonical_proxy(registry)
 
-        resource = proxy.load(self.id)
+        resource = proxy.load(self.id, proxy.cached_attributes)
         if resource:
-            self.update_with_mapping(resource, ignore='id')
+            self._synchronize_entity(proxy, resource)
         else:
             self.defunct = True
 
     @classmethod
     def synchronize_entities(cls, registry, session):
+        """Synchronizes all docket entities with their respective components."""
+
         registrations = list(session.query(Registration))
         for registration in registrations:
             registration.lock(session, True)
@@ -95,7 +99,7 @@ class Entity(Model):
                 session.commit()
 
     def update(self, session, containers=None, **attrs):
-        self.update_with_mapping(attrs)
+        self.update_with_mapping(attrs, ignore='id')
         self.modified = current_timestamp()
 
         if containers is not None:
@@ -107,13 +111,27 @@ class Entity(Model):
         identifiers = set()
 
         proxy = registration.get_canonical_proxy(registry)
+        fields = ['id'] + proxy.cached_attributes
+
         for resource in proxy.iterate(2000):
             entity = query.get(resource['id'])
             if entity:
-                entity.update_with_mapping(resource, ignore='id')
-                identifiers.add(resource['id'])
+                entity._synchronize_entity(proxy, resource)
+                identifiers.add(entity.id)
             else:
-                pass # delete remote resource
+                entity = cls.create(session, **resource)
+                identifiers.add(entity.id)
+
+        for entity in query.all():
+            if entity.id not in identifiers:
+                entity.defunct = True
+
+    def _synchronize_entity(self, proxy, data):
+        for attr in proxy.cached_attributes:
+            if attr in data:
+                setattr(self, attr, data[attr])
+
+        # todo: handle entity attrs
 
     @classmethod
     def _validate_containers(cls, session, containers):
@@ -129,11 +147,3 @@ class Entity(Model):
                 raise OperationError(token='unknown-container')
         else:
             return entities
-
-class TestEntity(Entity):
-    class meta:
-        polymorphic_identity = 'docket:test'
-        schema = schema
-        tablename = 'entity_test'
-
-    entity_id = ForeignKey('entity.id', nullable=False, primary_key=True)

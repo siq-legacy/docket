@@ -58,21 +58,15 @@ class EntityRegistry(Unit):
             current_runtime().reload()
 
     def _construct_model(self, registration):
-        tablename = self._prepare_tablename(registration.id)
-        meta = type('meta', (), {
-            'polymorphic_identity': registration.id,
-            'schema': self.schema.schema,
-            'tablename': tablename,
-        })
-
-        attrs = {'meta': meta, 'entity_id': ForeignKey('entity.id', nullable=False,
-            primary_key=True)}
+        attrs = {'entity_id': ForeignKey('entity.id', nullable=False, primary_key=True)}
         for name, attr in sorted(registration.cached_attributes.iteritems()):
             attrs[name] = attr.contribute_field()
 
-        model = type(str(registration.title), (Entity,), attrs)
-        registration.annotate(model)
+        tablename = self._prepare_tablename(registration.id)
+        model = self.schema.construct_model(Entity, tablename, attrs, registration.title,
+            polymorphic_identity=registration.id)
 
+        registration.annotate(model)
         self.schema.create_or_update_table(model.__table__)
         return model
 

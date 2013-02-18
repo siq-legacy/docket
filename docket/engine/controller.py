@@ -9,7 +9,19 @@ from spire.schema import NoResultFound, SchemaDependency
 from sqlalchemy.sql import asc, desc
 
 class Proxy(Unit):
-    """An entity proxy."""
+    """An entity proxy.
+
+    :param string id: The API id for this proxy, in the form `'resource:version'`.
+
+    :param string identity: The resource identity for this proxy.
+
+    :param list cached_attributes: A ``list`` containing the ``string`` names of
+        the cached attributes for this proxy.
+
+    :param client: The :class:`Client` for this proxy.
+
+    :param dict fields: A ``dict`` mapping.
+    """
 
     operators = FilterOperators()
     schema = SchemaDependency('docket')
@@ -102,11 +114,14 @@ class Proxy(Unit):
     def extract_data(self, request, data):
         return self.client.extract(self.identity, request, data)
 
-    def execute_request(self, request, subject=None, data=None):
+    def execute_request(self, request, subject=None, data=None, ignore_error=False):
         try:
             return self.client.execute(self.identity, request, subject, data)
         except ConnectionError:
             raise BadGatewayError()
+        except RequestError:
+            if not ignore_error:
+                raise
 
     def get(self, subject, data=None):
         payload = self.extract_data('get', data)
@@ -137,15 +152,17 @@ class Proxy(Unit):
             else:
                 offset += limit
 
-    def load(self, identifiers):
+    def load(self, identifiers, fields=None):
         single = False
         if isinstance(identifiers, basestring):
             identifiers = [identifiers]
             single = True
 
         payload = {'identifiers': identifiers}
-        results = self.execute_request('load', data=payload)
+        if fields:
+            payload['fields'] = fields
 
+        results = self.execute_request('load', data=payload)
         if single:
             return results[0]
         else:
@@ -221,10 +238,8 @@ class Proxy(Unit):
             return
 
         attrs = result.content
-        attrs.pop('id', None)
-
         try:
-            subject.update_with_mapping(attrs)
+            subject.update_with_mapping(attrs, ignore='id')
         except Exception:
             # schedule sync here
             pass
