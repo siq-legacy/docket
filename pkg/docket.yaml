@@ -30,6 +30,7 @@ configuration:
   schema:docket:
     admin_url: postgresql://postgres@localhost/postgres
     hstore: true
+    migrations: docket:migrations
     url: postgresql://postgres@localhost/docket
 logging:
   disable_existing_loggers: false
