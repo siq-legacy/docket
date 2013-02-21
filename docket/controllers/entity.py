@@ -44,13 +44,14 @@ class EntityController(BaseEntityController):
         if task == 'synchronize-entities':
             self.model.synchronize_entities(registry, session)
         elif task == 'synchronize-entity':
-            try:
-                subject = self.model.load(session, id=data['id'], lockmode='update')
-            except NoResultFound:
-                return
-            else:
-                subject.synchronize(registry, session)
-                session.commit()
+            for identifier in data['ids']:
+                try:
+                    subject = self.model.load(session, id=data['id'], lockmode='update')
+                except NoResultFound:
+                    continue
+                else:
+                    subject.synchronize(registry, session)
+                    session.commit()
         elif task == 'synchronize-changed-entity':
             event = data.get('event')
             if not event:

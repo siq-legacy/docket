@@ -18,6 +18,7 @@ from docket.models import Entity, Registration
 TASK_UUID_NAMESPACE = uuid.UUID('49be9141-1865-4d33-872b-b5a0b34b3017')
 
 log = LogHelper('docket')
+ScheduledTask = bind(platoon, 'platoon/1.0/scheduledtask')
 SubscribedTask = bind(platoon, 'platoon/1.0/subscribedtask')
 
 class EntityRegistry(Unit):
@@ -33,19 +34,23 @@ class EntityRegistry(Unit):
         self.models = {}
 
     def bootstrap(self):
+        from docket.bundles import API
         session = self.schema.session
+
+        identifiers = []
         for registration in session.query(Registration).options(undefer('specification')):
             model = self.models[registration.id] = self._construct_model(registration)
-            registration.create_standard_entities(session, model)
+            identifiers.extend(registration.create_standard_entities(session, model))
 
             self.annotator.process(registration, model)
             if registration.change_event:
                 self._subscribe_to_changes(registration)
 
         session.commit()
-
-        from docket.bundles import API
         API.attach(self.annotator.generate_mounts())
+
+        if not identifiers:
+            return
 
     def get_proxy(self, id, version):
         return self.proxies['%s:%s' % (id, version)]
@@ -97,7 +102,6 @@ class EntityRegistry(Unit):
             {'task': 'synchronize-changed-entity'})
 
         task['injections'] = ['event']
-
         SubscribedTask(
             id=nsuniqid(TASK_UUID_NAMESPACE, registration.id),
             tag='%s changes' % registration.id,

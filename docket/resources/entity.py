@@ -49,7 +49,7 @@ class Entity(Resource, BaseEntity[1]):
             structure={
                 'synchronize-entities': {},
                 'synchronize-entity': {
-                    'id': UUID(nonempty=True),
+                    'ids': Sequence(UUID(nonempty=True), nonempty=True),
                 },
                 'synchronize-changed-entity': {
                     'event': Structure({

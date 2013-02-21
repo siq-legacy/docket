@@ -80,15 +80,19 @@ class Registration(Model):
     def create_standard_entities(self, session, model):
         entities = self.standard_entities
         if not entities:
-            return
+            return []
 
+        identifiers = []
         for entity in entities:
+            identifiers.append(entity['id'])
             try:
                 subject = model.load(session, id=entity['id'])
             except NoResultFound:
-                model.create(session, **entity)
+                subject = model.create(session, **entity)
             else:
-                model.update_with_mapping(entity, ignore='id')
+                subject.update_with_mapping(entity, ignore='id')
+        else:
+            return identifiers
 
     def get_canonical_proxy(self, registry):
         return registry.get_proxy(self.id, self.get_canonical_version())
