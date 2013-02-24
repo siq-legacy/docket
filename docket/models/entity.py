@@ -9,16 +9,12 @@ from docket.models.registration import Registration
 log = LogHelper('docket')
 schema = Schema('docket')
 
-ContainerMembership = Table('container_membership', schema.metadata,
-    ForeignKey(name='container_id', column='entity.id', nullable=False, primary_key=True),
-    ForeignKey(name='member_id', column='entity.id', nullable=False, primary_key=True,
-        ondelete='CASCADE'))
-
 class Entity(Model):
     """An entity."""
 
     class meta:
         polymorphic_on = 'entity'
+        polymorphic_identity = 'docket:entity'
         schema = schema
         tablename = 'entity'
 
@@ -31,16 +27,17 @@ class Entity(Model):
     modified = DateTime(timezone=True, nullable=False)
     defunct = Boolean(nullable=False, default=False)
 
-    containers = relationship('Entity', secondary=ContainerMembership,
-        backref=backref('members'),
-        primaryjoin=(id==ContainerMembership.c.member_id),
-        secondaryjoin=(id==ContainerMembership.c.container_id),
+    associations = relationship('Association', backref='subject', lazy='dynamic',
+        primaryjoin='Entity.id==Association.subject_id',
         cascade='all', passive_deletes=True)
 
     is_container = False
 
+    def __repr__(self):
+        return '%s(id=%r, name=%r)' % (type(self).__name__, self.id, self.name)
+
     @classmethod
-    def create(cls, session, containers=None, **attrs):
+    def create(cls, session, **attrs):
         subject = cls(**attrs)
         if not subject.id:
             subject.id = uniqid()
@@ -51,23 +48,31 @@ class Entity(Model):
             subject.created = subject.modified = current_timestamp()
 
         session.add(subject)
-        session.flush()
-
-        if containers:
-            subject.containers = cls._validate_containers(session, containers)
-
         return subject
 
-    def describe_containers(self):
-        description = []
-        for container in self.containers:
-            description.append({
-                'id': container.id,
-                'entity': container.entity,
-                'name': container.name,
+    def describe_associates(self):
+        associates = []
+        for associate in self.associates.options(joinedload(Association.subject)):
+            subject = associate.subject
+            associates.append({
+                'subject': subject.id,
+                'intent': associate.intent,
+                'entity': subject.entity,
+                'name': subject.name,
             })
-        else:
-            return description
+        return associates
+
+    def describe_associations(self):
+        associations = []
+        for association in self.associations.options(joinedload(Association.target)):
+            target = association.target
+            associations.append({
+                'intent': association.intent,
+                'target': target.id,
+                'entity': target.entity,
+                'name': target.name,
+            })
+        return associations
 
     def get_registration(self, session):
         return session.query(Registration).get(self.entity)
@@ -98,12 +103,9 @@ class Entity(Model):
             else:
                 session.commit()
 
-    def update(self, session, containers=None, **attrs):
+    def update(self, session, **attrs):
         self.update_with_mapping(attrs, ignore='id')
         self.modified = current_timestamp()
-
-        if containers is not None:
-            self.containers = self._validate_containers(session, containers)
 
     @classmethod
     def _synchronize_entities(cls, registry, session, registration):
@@ -133,17 +135,40 @@ class Entity(Model):
 
         # todo: handle entity attrs
 
+class Association(Model):
+    """An entity association."""
+
+    class meta:
+        schema = schema
+        tablename = 'association'
+
+    subject_id = ForeignKey('entity.id', nullable=False, primary_key=True, ondelete='CASCADE')
+    intent = Token(segments=1, nullable=False, primary_key=True)
+    target_id = ForeignKey('entity.id', nullable=False, primary_key=True)
+
+    target = relationship(Entity, backref=backref('associates', lazy='dynamic'),
+        primaryjoin=(target_id==Entity.id))
+
     @classmethod
-    def _validate_containers(cls, session, containers):
-        entities = []
-        for container in containers:
-            try:
-                entity = Entity.load(session, id=container['id'])
-                if entity.is_container:
-                    entities.append(entity)
-                else:
-                    raise OperationError(token='invalid-container')
-            except NoResultFound:
-                raise OperationError(token='unknown-container')
-        else:
-            return entities
+    def query_associates(cls, query, subject=None, intent=None, entity=None):
+        query = query.join(Entity.associates)
+        if subject:
+            query = query.filter(cls.subject_id==subject)
+        if intent:
+            query = query.filter(cls.intent==intent)
+        if entity:
+            query = query.join(Entity, cls.subject_id==Entity.id,
+                aliased=True).filter(Entity.entity==entity).reset_joinpoint()
+        return query
+
+    @classmethod
+    def query_associations(cls, query, intent=None, target=None, entity=None):
+        query = query.join(Entity.associations)
+        if intent:
+            query = query.filter(cls.intent==intent)
+        if target:
+            query = query.filter(cls.target_id==target)
+        if entity:
+            query = query.join(Entity, cls.target_id==Entity.id,
+                aliased=True).filter(Entity.entity==entity).reset_joinpoint()
+        return query

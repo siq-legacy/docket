@@ -5,7 +5,7 @@ uwsgi:
   module: spire.runtime.uwsgi
   mule: 1
   need-app: true
-  processes: 4
+  processes: 2
   threads: 10
 spire:
   name: docket
@@ -19,7 +19,7 @@ configuration:
     url: http://localhost:6464/
   mesh:platoon:
     bundle: platoon.API
-    url: http://localhost:4321/
+    url: http://localhost:9998/
   schema:docket:
     admin_url: postgresql://postgres@localhost/postgres
     hstore: true

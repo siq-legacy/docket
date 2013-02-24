@@ -23,9 +23,21 @@ class BaseEntityController(ModelController):
 
         response({'id': subject.id})
 
+    def _annotate_filter(self, query, filter, value):
+        if filter == 'associations__has':
+            if value:
+                query = Association.query_associations(query, **value)
+            return query
+        elif filter == 'associates__has':
+            if value:
+                query = Association.query_associates(query, **value)
+            return query
+
     def _annotate_resource(self, request, model, resource, data):
-        if field_included(data, 'containers'):
-            resource['containers'] = model.describe_containers()
+        if field_included(data, 'associations'):
+            resource['associations'] = model.describe_associations()
+        if field_included(data, 'associates'):
+            resource['associates'] = model.describe_associates()
 
 class EntityController(BaseEntityController):
     resource = EntityResource

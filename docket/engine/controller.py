@@ -8,6 +8,8 @@ from spire.mesh.controllers import FilterOperators
 from spire.schema import NoResultFound, SchemaDependency
 from sqlalchemy.sql import asc, desc
 
+from docket.models import *
+
 class Proxy(Unit):
     """An entity proxy.
 
@@ -52,12 +54,16 @@ class Proxy(Unit):
         # this function is a hack
         if not payload:
             return
-        if 'include' in payload and 'containers' in payload['include']:
-            payload['include'].remove('containers')
+        if 'include' in payload:
+            for key in ('associates', 'associations'):
+                if key in payload['include']:
+                    payload['include'].remove(key)
 
     def construct_resource(self, subject, resource, data):
-        if field_included(data, 'containers'):
-            resource['containers'] = subject.describe_containers()
+        if field_included(data, 'associates'):
+            resource['associates'] = subject.describe_associates()
+        if field_included(data, 'associations'):
+            resource['associations'] = subject.describe_associations()
 
         for attr, field in self.fields.iteritems():
             if attr not in resource and not field.deferred:
@@ -255,20 +261,36 @@ class Proxy(Unit):
             pass
 
     def _construct_filters(self, query, filters):
-        model, operators = self.model, self.operators
+        model = self.model
+        operators = self.operators
+
         for filter, value in filters.iteritems():
+            if filter == 'associates__has':
+                if value:
+                    query = Association.query_associates(query, **value)
+                continue
+            elif filter == 'associations__has':
+                if value:
+                    query = Association.query_associations(query, **value)
+                continue
+
             attr, operator = filter, 'equal'
             if '__' in filter:
                 attr, operator = filter.rsplit('__', 1)
 
+            column = getattr(model, attr)
+            if not column:
+                continue
+
             constructor = getattr(operators, operator + '_op')
-            query = constructor(query, getattr(model, attr), value)
+            query = constructor(query, column, value)
 
         return query
 
     def _construct_sorting(self, query, sorting):
         model = self.model
         columns = []
+
         for attr in sorting:
             direction = asc
             if attr[-1] == '+':

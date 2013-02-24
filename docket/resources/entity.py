@@ -1,17 +1,6 @@
 from mesh.standard import *
 from scheme import *
 
-class Item(Resource):
-    """A contained entity."""
-
-    name = 'item'
-    version = 1
-
-    class schema:
-        id = Text(nonempty=True, operators='equal')
-        entity = Token(segments=2, readonly=True)
-        name = Text(readonly=True)
-
 class BaseEntity(Resource):
     """Base aspects of an entity."""
 
@@ -25,11 +14,32 @@ class BaseEntity(Resource):
         created = DateTime(utc=True, readonly=True, annotational=True)
         modified = DateTime(utc=True, readonly=True, annotational=True)
         defunct = Boolean(operators='equal', readonly=True, annotational=True)
-        containers = Sequence(Structure({
-            'id': Text(nonempty=True),
-            'entity': Token(segments=2, readonly=True),
+
+        associations = Sequence(Structure({
+            'intent': Token(readonly=True),
+            'target': Text(readonly=True),
+            'entity': Token(readonly=True),
             'name': Text(readonly=True),
-        }, nonnull=True), nonnull=True, deferred=True, annotational=True)
+        }, readonly=True), readonly=True, deferred=True, annotational=True, operators=[
+            Structure(name='associations__has', structure={
+                'intent': Token(ignore_null=True),
+                'target': Text(ignore_null=True),
+                'entity': Token(ignore_null=True),
+            }, nonnull=True),
+        ])
+
+        associates = Sequence(Structure({
+            'subject': Text(readonly=True),
+            'intent': Token(readonly=True),
+            'entity': Token(readonly=True),
+            'name': Text(readonly=True),
+        }, readonly=True), readonly=True, deferred=True, annotational=True, operators=[
+            Structure(name='associates__has', structure={
+                'subject': Text(ignore_null=True),
+                'intent': Token(ignore_null=True),
+                'entity': Token(ignore_null=True),
+            }, nonnull=True),
+        ])
 
 class Entity(Resource, BaseEntity[1]):
     """An entity."""
