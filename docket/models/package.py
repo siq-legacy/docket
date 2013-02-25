@@ -24,8 +24,8 @@ class Package(Entity):
     package = Text()
 
     @classmethod
-    def create(cls, session, containers=None, **attrs):
-        subject = super(Package, cls).create(session, containers, **attrs)
+    def create(cls, session, **attrs):
+        subject = super(Package, cls).create(session, **attrs)
         if subject.status == 'deployed':
             subject.status = 'deploying'
         return subject
@@ -35,7 +35,6 @@ class Package(Entity):
             entities = Yaml().unserialize(self.package)
             for entity in entities:
                 entity_type = entity.pop('entity')
-                entity.setdefault('containers', None)
                 registration = session.query(Registration).get(entity_type)
                 proxy = registration.get_canonical_proxy(registry)
 
