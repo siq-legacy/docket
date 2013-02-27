@@ -11,7 +11,7 @@ class Package(Resource, BaseEntity[1]):
 
     class schema:
         id = Token(nonempty=True, oncreate=True, operators='equal')
-        status = Enumeration('deployed undeployed deploying', nullable=False, default='undeployed')
+        status = Enumeration('deployed undeployed deploying invalid', nullable=False, default='undeployed')
         package = Text()
 
     class task:
@@ -21,10 +21,13 @@ class Package(Resource, BaseEntity[1]):
                 'deploy-package': {
                     'id': Token(nonempty=True),
                 },
+                'update-package': {
+                    'id': Token(nonempty=True),
+                },
             },
             nonempty=True,
             polymorphic_on=Enumeration([
-                'deploy-package'],
+                'deploy-package', 'update-package'],
                 name='task', nonempty=True))
         responses = {
             OK: Response(),
