@@ -52,7 +52,7 @@ class Entity(Model):
 
     def describe_associates(self):
         associates = []
-        for associate in self.associates.options(joinedload(Association.subject)):
+        for associate in self.associates.options(joinedload('subject')):
             subject = associate.subject
             associates.append({
                 'subject': subject.id,
@@ -64,7 +64,7 @@ class Entity(Model):
 
     def describe_associations(self):
         associations = []
-        for association in self.associations.options(joinedload(Association.target)):
+        for association in self.associations.options(joinedload('target')):
             target = association.target
             associations.append({
                 'intent': association.intent,
@@ -134,41 +134,3 @@ class Entity(Model):
                 setattr(self, attr, data[attr])
 
         # todo: handle entity attrs
-
-class Association(Model):
-    """An entity association."""
-
-    class meta:
-        schema = schema
-        tablename = 'association'
-
-    subject_id = ForeignKey('entity.id', nullable=False, primary_key=True, ondelete='CASCADE')
-    intent = Token(segments=1, nullable=False, primary_key=True)
-    target_id = ForeignKey('entity.id', nullable=False, primary_key=True)
-
-    target = relationship(Entity, backref=backref('associates', lazy='dynamic'),
-        primaryjoin=(target_id==Entity.id))
-
-    @classmethod
-    def query_associates(cls, query, subject=None, intent=None, entity=None):
-        query = query.join(Entity.associates)
-        if subject:
-            query = query.filter(cls.subject_id==subject)
-        if intent:
-            query = query.filter(cls.intent==intent)
-        if entity:
-            query = query.join(Entity, cls.subject_id==Entity.id,
-                aliased=True).filter(Entity.entity==entity).reset_joinpoint()
-        return query
-
-    @classmethod
-    def query_associations(cls, query, intent=None, target=None, entity=None):
-        query = query.join(Entity.associations)
-        if intent:
-            query = query.filter(cls.intent==intent)
-        if target:
-            query = query.filter(cls.target_id==target)
-        if entity:
-            query = query.join(Entity, cls.target_id==Entity.id,
-                aliased=True).filter(Entity.entity==entity).reset_joinpoint()
-        return query

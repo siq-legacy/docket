@@ -26,11 +26,11 @@ class BaseEntityController(ModelController):
     def _annotate_filter(self, query, filter, value):
         if filter == 'associations__has':
             if value:
-                query = Association.query_associations(query, **value)
+                query = Association.query_associations(query, self.model, **value)
             return query
         elif filter == 'associates__has':
             if value:
-                query = Association.query_associates(query, **value)
+                query = Association.query_associates(query, self.model, **value)
             return query
 
     def _annotate_resource(self, request, model, resource, data):

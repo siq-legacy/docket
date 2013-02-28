@@ -11,3 +11,10 @@ class AssociationController(ModelController):
     model = Association
     schema = SchemaDependency('docket')
     mapping = ('id', ('subject', 'subject_id'), 'intent', ('target', 'target_id'))
+
+    def create(self, request, response, subject, data):
+        session = self.schema.session
+        subject = self.model.create(session, data['subject'], data['intent'], data['target'])
+
+        session.commit()
+        response({'id': self._get_id_value(subject)})

@@ -19,8 +19,6 @@ class GenerateJavascriptBindings(Task):
             if candidate.exists():
                 registration['specification'] = eval(candidate.bytes())
                 annotator.process(registration)
-            else:
-                raise TaskError('missing specification')
 
         API.attach(annotator.generate_mounts())
         runtime.execute('mesh.javascript', path=self['path'], bundle=API)
