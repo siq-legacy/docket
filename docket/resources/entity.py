@@ -57,8 +57,8 @@ class Entity(Resource, BaseEntity[1]):
         title = 'Initiating an entity task'
         schema = Structure(
             structure={
-                'synchronize-entities': {},
-                'synchronize-entity': {
+                'synchronize-all-entities': {},
+                'synchronize-entities': {
                     'ids': Sequence(UUID(nonempty=True), nonempty=True),
                 },
                 'synchronize-changed-entity': {
@@ -69,8 +69,7 @@ class Entity(Resource, BaseEntity[1]):
                 },
             },
             nonempty=True,
-            polymorphic_on=Enumeration(['synchronize-changed-entity', 'synchronize-entities',
-                'synchronize-entity'], name='task', nonempty=True))
+            polymorphic_on='task')
         responses = {
             OK: Response(),
             INVALID: Response(Errors),

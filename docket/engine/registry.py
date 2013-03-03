@@ -34,37 +34,30 @@ class EntityRegistry(Unit):
         self.models = {}
 
     def bootstrap(self):
-        from docket.bundles import API
+        from docket.bundles import ENTITY_API
         session = self.schema.session
 
-        identifiers = []
         for registration in session.query(Registration).options(undefer('specification')):
             model = self.models[registration.id] = self._construct_model(registration)
-            identifiers.extend(registration.create_standard_entities(session, model))
 
             self.annotator.process(registration, model)
             if registration.change_event:
                 self._subscribe_to_changes(registration)
 
         session.commit()
-        API.attach(self.annotator.generate_mounts())
-
-        if not identifiers:
-            return
+        ENTITY_API.attach(self.annotator.generate_mounts())
 
     def get_proxy(self, id, version):
         return self.proxies['%s:%s' % (id, version)]
 
-    def register(self, registration, changed=False):
-        table = self._construct_table(registration)
-        if changed or not self.schema.is_table_correct(table):
-            current_runtime().reload()
+    def synchronize_entities(self):
+        session = self.schema.session
+        Entity.synchronize_entities(self, session)
 
     def unregister(self, registration):
         table = self._construct_table(registration)
         if self.schema.table_exists(table):
             self.schema.drop_table(table)
-            current_runtime().reload()
 
     def _construct_model(self, registration):
         attrs = {'entity_id': ForeignKey('entity.id', nullable=False, primary_key=True)}

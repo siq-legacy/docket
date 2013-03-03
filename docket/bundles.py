@@ -2,8 +2,6 @@ from mesh.standard import Bundle, mount
 
 from docket.resources import *
 
-__all__ = ('API', 'CONCEPT_API', 'DOCUMENT_API', 'INSTANCE_API')
-
 API = Bundle('docket',
     #mount(Archetype, 'docket.controllers.archetype.ArchetypeController'),
     mount(Association, 'docket.controllers.association.AssociationController'),
@@ -13,6 +11,9 @@ API = Bundle('docket',
     mount(Registration, 'docket.controllers.registration.RegistrationController'),
 )
 
+ENTITY_API = Bundle('docket.entity')
 INSTANCE_API = Bundle('docket.instance')
 CONCEPT_API = Bundle('docket.concept')
 DOCUMENT_API = Bundle('docket.document')
+
+BUNDLES = [API, CONCEPT_API, DOCUMENT_API, ENTITY_API, INSTANCE_API]

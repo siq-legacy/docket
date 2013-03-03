@@ -1,7 +1,7 @@
 from bake import *
 from scheme import Format, Text
 
-from docket.bundles import API
+from docket.bundles import ENTITY_API
 from docket.engine.annotation import StaticAnnotator
 
 class GenerateJavascriptBindings(Task):
@@ -20,5 +20,5 @@ class GenerateJavascriptBindings(Task):
                 registration['specification'] = eval(candidate.bytes())
                 annotator.process(registration)
 
-        API.attach(annotator.generate_mounts())
-        runtime.execute('mesh.javascript', path=self['path'], bundle=API)
+        ENTITY_API.attach(annotator.generate_mounts())
+        runtime.execute('mesh.javascript', path=self['path'], bundle=ENTITY_API)

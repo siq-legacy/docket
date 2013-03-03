@@ -97,8 +97,9 @@ class Entity(Model):
         for registration in registrations:
             registration.lock(session, True)
             try:
-                self._synchronize_entities(session, registration)
+                cls._synchronize_entities(registry, session, registration)
             except Exception:
+                log('exception', 'synchronization of %s entities failed', registration.id)
                 session.rollback()
             else:
                 session.commit()
@@ -109,19 +110,20 @@ class Entity(Model):
 
     @classmethod
     def _synchronize_entities(cls, registry, session, registration):
-        query = session.query(cls)
-        identifiers = set()
+        implementation = registry.models[registration.id]
+        query = session.query(implementation)
 
         proxy = registration.get_canonical_proxy(registry)
         fields = ['id'] + proxy.cached_attributes
 
+        identifiers = set()
         for resource in proxy.iterate(2000):
             entity = query.get(resource['id'])
             if entity:
                 entity._synchronize_entity(proxy, resource)
                 identifiers.add(entity.id)
             else:
-                entity = cls.create(session, **resource)
+                entity = implementation.create(session, **resource)
                 identifiers.add(entity.id)
 
         for entity in query.all():
@@ -129,6 +131,7 @@ class Entity(Model):
                 entity.defunct = True
 
     def _synchronize_entity(self, proxy, data):
+        self.defunct = False
         for attr in proxy.cached_attributes:
             if attr in data:
                 setattr(self, attr, data[attr])

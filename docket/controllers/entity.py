@@ -53,9 +53,9 @@ class EntityController(BaseEntityController):
         session = self.schema.session
 
         task = data['task']
-        if task == 'synchronize-entities':
+        if task == 'synchronize-all-entities':
             self.model.synchronize_entities(registry, session)
-        elif task == 'synchronize-entity':
+        elif task == 'synchronize-entities':
             for identifier in data['ids']:
                 try:
                     subject = self.model.load(session, id=data['id'], lockmode='update')

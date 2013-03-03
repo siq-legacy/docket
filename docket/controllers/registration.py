@@ -1,6 +1,6 @@
 from spire.core import Dependency
 from spire.mesh import ModelController
-from spire.schema import SchemaDependency
+from spire.schema import NoResultFound, SchemaDependency
 from sqlalchemy.orm import undefer
 
 from docket.engine.registry import EntityRegistry
@@ -29,7 +29,6 @@ class RegistrationController(ModelController):
 
         session.commit()
         response({'id': subject.id})
-        self.registry.register(subject)
 
     def delete(self, request, response, subject, data):
         session = self.schema.session
@@ -44,11 +43,10 @@ class RegistrationController(ModelController):
             return response({'id': subject.id})
 
         session = self.schema.session
-        changed = subject.update(session, **data)
+        subject.update(session, **data)
 
         session.commit()
         response({'id': subject.id})
-        self.registry.register(subject, changed)
 
     def _annotate_resource(self, request, model, resource, data):
         resource['cached_attributes'] = {}
