@@ -14,6 +14,11 @@ uwsgi:
   touch-logreopen: ${VARPATH}/docket.logreopen
   uid: uwsgi
   vacuum: true
+spire:
+  registration_url: http://localhost:10000/nucleus/1.0/service
+  services:
+    - id: docket
+      dependencies: [platoon]
 include:
   - /etc/siq/local.yaml
 components:
