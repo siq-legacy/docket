@@ -8,15 +8,7 @@ from docket.controllers.entity import BaseEntityController
 from docket.engine.archetype_registry import ArchetypeRegistry
 from docket.models import *
 
-class ArchetypeController(BaseEntityController):
-    resource = resources.Archetype
-    version = (1, 0)
-
-    model = Archetype
-    registry = Dependency(ArchetypeRegistry)
-    schema = SchemaDependency('docket')
-    mapping = 'id name designation description created modified resource attributes'
-
+class BaseArchetypeController(BaseEntityController):
     def create(self, request, response, subject, data):
         session = self.schema.session
         subject = self.model.create(session, **data)
@@ -43,3 +35,13 @@ class ArchetypeController(BaseEntityController):
         session.commit()
         response({'id': subject.id})
         self.registry.register(subject, changed)
+
+class ArchetypeController(BaseArchetypeController):
+    resource = resources.Archetype
+    version = (1, 0)
+
+    model = Archetype
+    registry = Dependency(ArchetypeRegistry)
+    schema = SchemaDependency('docket')
+    mapping = 'id name designation description created modified resource properties'
+

@@ -7,6 +7,8 @@ from docket.models.instance import Instance
 from docket.resources.entity import BaseEntity
 from docket.resources.instance import BaseInstance
 
+__all__ = ('Archetype',)
+
 log = LogHelper('docket')
 schema = Schema('docket')
 
@@ -29,4 +31,4 @@ class Archetype(Entity):
 
     entity_id = ForeignKey(Entity.id, nullable=False, primary_key=True)
     resource = Token(segments=1, nullable=False, unique=True)
-    attributes = Definition()
+    properties = Definition()

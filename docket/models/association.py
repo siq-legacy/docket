@@ -3,6 +3,8 @@ from spire.schema import *
 
 from docket.models.intent import Intent
 
+__all__ = ('Association',)
+
 schema = Schema('docket')
 
 class Association(Model):

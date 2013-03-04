@@ -2,6 +2,8 @@ from spire.schema import *
 
 from docket.models.entity import Entity
 
+__all__ = ('Intent',)
+
 schema = Schema('docket')
 
 class Intent(Entity):

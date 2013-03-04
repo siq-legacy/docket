@@ -1,19 +1,22 @@
 from datetime import datetime
 
 from mesh.standard import bind
+from scheme import current_timestamp
 from spire.core import Component, Dependency
 from spire.exceptions import TemporaryStartupError
 from spire.mesh import MeshDependency, MeshServer
 from spire.runtime import current_runtime, onstartup
-from spire.schema import SchemaDependency
+from spire.schema import Schema, SchemaDependency
 
-import docket.models
+from docket import models
 
 from docket.bindings import platoon
 from docket.bundles import BUNDLES
-#from docket.engine.archetype_registry import ArchetypeRegistry
+from docket.engine.archetype_registry import ArchetypeRegistry
 from docket.engine.registry import EntityRegistry
 from docket.resources import *
+
+schema = Schema('docket')
 
 RecurringTask = bind(platoon, 'platoon/1.0/recurringtask')
 Schedule = bind(platoon, 'platoon/1.0/schedule')
@@ -34,7 +37,7 @@ SYNC_ALL_ENTITIES = RecurringTask(
 class Docket(Component):
     api = MeshServer.deploy(bundles=BUNDLES)
 
-    #archetype_registry = Dependency(ArchetypeRegistry)
+    archetype_registry = Dependency(ArchetypeRegistry)
     entity_registry = Dependency(EntityRegistry)
 
     docket = MeshDependency('docket')
@@ -43,7 +46,7 @@ class Docket(Component):
     @onstartup()
     def bootstrap(self):
         self.entity_registry.bootstrap()
-        #self.archetype_registry.bootstrap()
+        self.archetype_registry.bootstrap()
         self.api.server.configure_endpoints()
 
     @onstartup(service='docket')
@@ -66,3 +69,23 @@ class Docket(Component):
         self.entity_registry.synchronize_entities()
         return {'status': 'ready'}
 
+@schema.constructor()
+def bootstrap_documents(session):
+    now = current_timestamp()
+    matter = models.DocumentType(
+        id='siq:matter',
+        name='Matter',
+        created=now,
+        modified=now,
+        resource='siq.matter')
+
+    available_to = models.Intent(
+        id='available-to',
+        name='Available to',
+        created=now,
+        modified=now,
+        exclusive=False)
+
+    session.merge(matter)
+    session.merge(available_to)
+    session.commit()

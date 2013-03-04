@@ -6,6 +6,8 @@ from spire.support.logs import LogHelper
 from docket.models.entity import Entity
 from docket.models.registration import Registration
 
+__all__ = ('Package',)
+
 log = LogHelper('docket')
 schema = Schema('docket')
 

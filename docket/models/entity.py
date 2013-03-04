@@ -6,6 +6,8 @@ from spire.util import uniqid
 
 from docket.models.registration import Registration
 
+__all__ = ('Entity',)
+
 log = LogHelper('docket')
 schema = Schema('docket')
 

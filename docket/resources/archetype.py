@@ -11,7 +11,7 @@ class BaseArchetype(Resource):
 
     class schema:
         resource = Token(segments=1, nonempty=True)
-        attributes = Definition()
+        properties = Definition()
 
 class Archetype(Resource, BaseEntity[1], BaseArchetype[1]):
     """An entity archetype."""

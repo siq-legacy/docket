@@ -3,8 +3,9 @@ from mesh.standard import Bundle, mount
 from docket.resources import *
 
 API = Bundle('docket',
-    #mount(Archetype, 'docket.controllers.archetype.ArchetypeController'),
+    mount(Archetype, 'docket.controllers.archetype.ArchetypeController'),
     mount(Association, 'docket.controllers.association.AssociationController'),
+    mount(DocumentType, 'docket.controllers.documenttype.DocumentTypeController'),
     mount(Entity, 'docket.controllers.entity.EntityController'),
     mount(Intent, 'docket.controllers.intent.IntentController'),
     mount(Package, 'docket.controllers.package.PackageController'),
