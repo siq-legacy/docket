@@ -168,11 +168,11 @@ class Proxy(Unit):
         if fields:
             payload['fields'] = fields
 
-        results = self.execute_request('load', data=payload)
+        response = self.execute_request('load', data=payload)
         if single:
-            return results[0]
+            return response.content[0]
         else:
-            return results
+            return response.content
 
     def query(self, data=None):
         # todo: needs to use data to request deferred fields via load
