@@ -2,7 +2,7 @@ import re
 
 import scheme
 from mesh.bundle import mount
-from mesh.standard import Resource, bind
+from mesh.standard import Controller, Resource, bind
 from spire.core import Unit
 from spire.mesh import MeshDependency
 from spire.runtime import current_runtime
@@ -109,3 +109,40 @@ class ArchetypeRegistry(Unit):
     def _prepare_tablename(self, prefix, id):
         tablename = id.lower().replace(':', '_')
         return prefix + '_' + re.sub(r'[^a-z_]', '', tablename).strip('_')
+
+class StaticConstructor(object):
+    def __init__(self, config, archetypes):
+        self.archetypes = archetypes
+        self.config = config
+
+    def construct(self):
+        bundle = import_object(self.config.bundle)
+        for archetype in self.archetypes:
+            bundle.attach([self._construct_mount(archetype)])
+        return bundle
+
+    def _construct_mount(self, archetype):
+        resource = Resource
+        controller = Controller
+
+        for version, mixins, mixin_controller in self.config.resources:
+            if resource.version != version[0]:
+                resource = self._construct_resource(archetype, resource, version[0], mixins)
+
+            controller = type('%sController' % resource.title, (controller,), {
+                'resource': resource,
+                'version': tuple(version),
+            })
+
+        return mount(resource, controller)
+
+    def _construct_resource(self, archetype, resource, version, mixins):
+        bases = tuple([resource] + list(mixins))
+        return type(str(archetype['resource']).capitalize(), bases, {
+            'name': archetype['resource'],
+            'version': version,
+            'requests': 'create delete get put query update',
+            'schema': {
+                'id': scheme.UUID(oncreate=True, operators='equal'),
+            },
+        })
