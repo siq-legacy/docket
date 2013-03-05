@@ -10,11 +10,17 @@ down_revision = '591141df4d22'
 
 from alembic import op
 from spire.schema.fields import *
-from sqlalchemy import Column, ForeignKey, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint
+from sqlalchemy import (Column, ForeignKey, ForeignKeyConstraint, PrimaryKeyConstraint, CheckConstraint,
+    Table, MetaData)
 from sqlalchemy.dialects import postgresql
 
 def upgrade():
-    op.add_column('package', Column('status', EnumerationType(), nullable=True))
+    connection = op.get_bind()
+    metadata = MetaData()
+
+    table = Table('package', metadata, autoload=True, autoload_with=connection)
+    if 'package.status' not in table.c:
+        op.add_column('package', Column('status', EnumerationType(), nullable=True))
 
 def downgrade():
     op.drop_column('package', 'status')

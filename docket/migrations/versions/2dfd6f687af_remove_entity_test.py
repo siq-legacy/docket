@@ -14,10 +14,7 @@ from sqlalchemy import Column, ForeignKey, ForeignKeyConstraint, PrimaryKeyConst
 from sqlalchemy.dialects import postgresql
 
 def upgrade():
-    try:
-        op.drop_table('entity_test')
-    except:
-        pass
+    op.execute('drop table if exists entity_test')
 
 def downgrade():
     pass

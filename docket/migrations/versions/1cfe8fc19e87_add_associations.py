@@ -26,8 +26,8 @@ def upgrade():
 
 def downgrade():
     op.create_table(u'container_membership',
-        Column(u'container_id', TEXT(), nullable=False),
-        Column(u'member_id', TEXT(), nullable=False),
+        Column(u'container_id', TextType(), nullable=False),
+        Column(u'member_id', TextType(), nullable=False),
         ForeignKeyConstraint(['container_id'], [u'entity.id'], name=u'container_membership_container_id_fkey'),
         ForeignKeyConstraint(['member_id'], [u'entity.id'], name=u'container_membership_member_id_fkey'),
         PrimaryKeyConstraint(u'container_id', u'member_id', name=u'container_membership_pkey')
