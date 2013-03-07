@@ -39,16 +39,19 @@ class EntityRegistry(Unit):
 
         for registration in session.query(Registration).options(undefer('specification')):
             model = self.models[registration.id] = self._construct_model(registration)
-
             self.annotator.process(registration, model)
-            if registration.change_event:
-                self._subscribe_to_changes(registration)
 
         session.commit()
         ENTITY_API.attach(self.annotator.generate_mounts())
 
     def get_proxy(self, id, version):
         return self.proxies['%s:%s' % (id, version)]
+
+    def subscribe_to_changes(self):
+        session = self.schema.session
+        for registration in session.query(Registration):
+            if registration.change_event:
+                self._subscribe_to_changes(registration)
 
     def synchronize_entities(self):
         session = self.schema.session

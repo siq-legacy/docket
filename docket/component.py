@@ -57,6 +57,7 @@ class Docket(Component):
             {'task': 'synchronize-all-entities'}))
         SYNC_ALL_ENTITIES.put()
 
+        self.entity_registry.subscribe_to_changes()
         return {'status': 'yielding', 'stage': 'dependents-ready'}
 
     @onstartup(service='docket', stage='dependents-ready')
