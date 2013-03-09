@@ -80,6 +80,8 @@ class Proxy(Unit):
         returning = self.cached_attributes
         if self.created_is_proxied:
             returning = ['created'] + returning
+        if self.modified_is_proxied:
+            returning = ['modified'] + returning
 
         payload = self.extract_data('create', data)
         if returning:
@@ -89,7 +91,7 @@ class Proxy(Unit):
         result = self.execute_request('create', data=payload)
 
         attrs = result.content
-        if self.created_is_proxied:
+        if self.created_is_proxied and not self.modified_is_proxied:
             attrs['modified'] = attrs['created']
 
         attrs.pop('id', None)
