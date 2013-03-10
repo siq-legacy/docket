@@ -74,7 +74,9 @@ class Proxy(Unit):
         session = self.schema.session
         self._acquire_registration_lock(session)
 
-        attrs = dict((attr, value) for attr, value in data.iteritems() if attr in self.fields)
+        attrs = dict((attr, value) for attr, value in data.iteritems()
+            if attr in self.fields or attr == 'id')
+
         subject = self.model.create(session, **attrs)
         session.flush()
 
@@ -102,9 +104,6 @@ class Proxy(Unit):
         except Exception:
             self._attempt_request('delete', subject.id)
             raise
-
-        if not subject.name:
-            subject.name = 'Unnamed %s' % self.title
 
         return subject
 
