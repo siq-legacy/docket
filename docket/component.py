@@ -36,6 +36,7 @@ SYNC_ALL_ENTITIES = RecurringTask(
 
 class Docket(Component):
     api = MeshServer.deploy(bundles=BUNDLES)
+    schema = SchemaDependency('docket')
 
     archetype_registry = Dependency(ArchetypeRegistry)
     entity_registry = Dependency(EntityRegistry)
@@ -47,7 +48,9 @@ class Docket(Component):
     def bootstrap(self):
         self.entity_registry.bootstrap()
         self.archetype_registry.bootstrap()
+
         self.api.server.configure_endpoints()
+        self.schema.purge()
 
     @onstartup(service='docket')
     def startup_docket(self):
