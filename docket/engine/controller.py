@@ -40,6 +40,7 @@ class Proxy(Unit):
         self.model = model
         self.modified_is_proxied = modified_is_proxied
         self.registration = registration
+        self.title = registration.title
 
     def __repr__(self):
         return 'Proxy(%r)' % self.id
@@ -77,11 +78,13 @@ class Proxy(Unit):
         subject = self.model.create(session, **attrs)
         session.flush()
 
-        returning = self.cached_attributes
+        returning = list(self.cached_attributes)
+        if not subject.name:
+            returning.append('name')
         if self.created_is_proxied:
-            returning = ['created'] + returning
+            returning.append('created')
         if self.modified_is_proxied:
-            returning = ['modified'] + returning
+            returning.append('modified')
 
         payload = self.extract_data('create', data)
         if returning:
@@ -94,14 +97,16 @@ class Proxy(Unit):
         if self.created_is_proxied and not self.modified_is_proxied:
             attrs['modified'] = attrs['created']
 
-        attrs.pop('id', None)
         try:
-            subject.update_with_mapping(attrs)
+            subject.update_with_mapping(attrs, ignore='id')
         except Exception:
             self._attempt_request('delete', subject.id)
             raise
-        else:
-            return subject
+
+        if not subject.name:
+            subject.name = 'Unnamed %s' % self.title
+
+        return subject
 
     def count(self):
         response = self.execute_request('query', data={'total': True})

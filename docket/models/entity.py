@@ -22,7 +22,7 @@ class Entity(Model):
 
     id = Text(nullable=False, primary_key=True)
     entity = Token(nullable=False, index=True)
-    name = Text(nullable=False, index=True)
+    name = Text(index=True)
     designation = Text(index=True)
     description = Text()
     created = DateTime(timezone=True, nullable=False)
