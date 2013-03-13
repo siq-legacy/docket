@@ -90,6 +90,14 @@ def bootstrap_documents(session):
         modified=now,
         exclusive=False)
 
+    contained_by = models.Intent(
+        id='contained-by',
+        name='Contained by',
+        created=now,
+        modified=now,
+        exclusive=False)
+
     session.merge(matter)
     session.merge(available_to)
+    session.merge(contained_by)
     session.commit()
