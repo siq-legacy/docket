@@ -273,11 +273,11 @@ class Proxy(Unit):
         for filter, value in filters.iteritems():
             if filter == 'associates__has':
                 if value:
-                    query = Association.query_associates(query, **value)
+                    query = Association.query_associates(query, model, **value)
                 continue
             elif filter == 'associations__has':
                 if value:
-                    query = Association.query_associations(query, **value)
+                    query = Association.query_associations(query, model, **value)
                 continue
 
             attr, operator = filter, 'equal'
