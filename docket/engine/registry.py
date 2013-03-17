@@ -68,7 +68,7 @@ class EntityRegistry(Unit):
             attrs[name] = attr.contribute_field()
 
         tablename = self._prepare_tablename(registration.id)
-        model = self.schema.construct_model(Entity, tablename, attrs, registration.title,
+        model = self.schema.construct_model(Entity, tablename, attrs, 
             polymorphic_identity=registration.id)
 
         registration.annotate(model)
