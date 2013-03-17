@@ -8,7 +8,7 @@ class BaseEntity(Resource):
     version = 1
 
     class schema:
-        name = Text(operators='equal contains icontains', annotational=True)
+        name = Text(operators='equal contains icontains', nonempty=True, annotational=True)
         designation = Text(operators='equal', annotational=True)
         description = Text(annotational=True)
         created = DateTime(utc=True, readonly=True, annotational=True)
