@@ -83,6 +83,20 @@ def bootstrap_documents(session):
         modified=now,
         resource='siq.matter')
 
+    fileplan = models.DocumentType(
+        id='siq:fileplan',
+        name='File Plan',
+        created=now,
+        modified=now,
+        resource='siq.fileplan')
+
+    project = models.DocumentType(
+        id='siq:project',
+        name='Project',
+        created=now,
+        modified=now,
+        resource='siq.project')
+
     available_to = models.Intent(
         id='available-to',
         name='Available to',
@@ -98,6 +112,8 @@ def bootstrap_documents(session):
         exclusive=False)
 
     session.merge(matter)
+    session.merge(fileplan)
+    session.merge(project)
     session.merge(available_to)
     session.merge(contained_by)
     session.commit()
