@@ -3,6 +3,7 @@ from scheme import current_timestamp
 from spire.schema import *
 from spire.support.logs import LogHelper
 from spire.util import uniqid
+from sqlalchemy.sql import exists
 
 from docket.models.registration import Registration
 
@@ -49,6 +50,7 @@ class Entity(Model):
         else:
             subject.created = subject.modified = current_timestamp()
 
+        cls._check_duplicate_name(session, subject)
         session.add(subject)
         return subject
 
@@ -109,6 +111,16 @@ class Entity(Model):
     def update(self, session, **attrs):
         self.update_with_mapping(attrs, ignore='id')
         self.modified = current_timestamp()
+        self._check_duplicate_name(session, self)
+
+    @classmethod
+    def _check_duplicate_name(cls, session, instance):
+        # temporary solution for name uniqueness
+        statement = exists().where(Entity.name==instance.name).where(
+            Entity.entity==instance.entity).where(Entity.id!=instance.id)
+
+        if session.query(statement).scalar():
+            raise OperationError(token='duplicate-entity-name-for-type')
 
     @classmethod
     def _synchronize_entities(cls, registry, session, registration):
