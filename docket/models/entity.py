@@ -120,7 +120,8 @@ class Entity(Model):
             Entity.entity==instance.entity).where(Entity.id!=instance.id)
 
         if session.query(statement).scalar():
-            raise OperationError(token='duplicate-entity-name-for-type')
+            raise OperationError(structure={
+                'name': OperationError(token='duplicate-entity-name-for-type')})
 
     @classmethod
     def _synchronize_entities(cls, registry, session, registration):
