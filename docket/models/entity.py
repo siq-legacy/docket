@@ -116,8 +116,11 @@ class Entity(Model):
     @classmethod
     def _check_duplicate_name(cls, session, instance):
         # temporary solution for name uniqueness
-        statement = exists().where(Entity.name==instance.name).where(
-            Entity.entity==instance.entity).where(Entity.id!=instance.id)
+        from docket.models import Archetype
+        statement = exists().where(
+                instance.entity.in_(session.query(Archetype.entity_id))
+                ).where(Entity.name==instance.name).where(
+                Entity.entity==instance.entity).where(Entity.id!=instance.id)
 
         if session.query(statement).scalar():
             raise OperationError(structure={
