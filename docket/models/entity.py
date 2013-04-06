@@ -3,7 +3,7 @@ from scheme import current_timestamp
 from spire.schema import *
 from spire.support.logs import LogHelper
 from spire.util import uniqid
-from sqlalchemy.sql import exists
+from sqlalchemy import func
 
 from docket.models.registration import Registration
 
@@ -117,12 +117,12 @@ class Entity(Model):
     def _check_duplicate_name(cls, session, instance):
         # temporary solution for name uniqueness
         from docket.models import Archetype
-        statement = exists().where(
-                instance.entity.in_(session.query(Archetype.entity_id))
-                ).where(Entity.name==instance.name).where(
-                Entity.entity==instance.entity).where(Entity.id!=instance.id)
+        statement = session.query(func.count(Entity.id)).filter(
+            Entity.entity.in_(session.query(Archetype.entity_id)),
+            Entity.name==instance.name, Entity.entity==instance.entity,
+            Entity.id!=instance.id)
 
-        if session.query(statement).scalar():
+        if statement.scalar():
             raise OperationError(structure={
                 'name': OperationError(token='duplicate-entity-name-for-type')})
 
