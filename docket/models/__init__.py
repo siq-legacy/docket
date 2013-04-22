@@ -3,6 +3,7 @@ from .association import *
 from .documenttype import *
 from .document import *
 from .entity import *
+from .form import *
 from .instance import *
 from .intent import *
 from .package import *
