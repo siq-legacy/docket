@@ -1,5 +1,7 @@
 from .archetype import *
 from .association import *
+from .concept import *
+from .constituent import *
 from .document import *
 from .documenttype import *
 from .entity import *

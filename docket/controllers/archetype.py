@@ -15,7 +15,6 @@ class BaseArchetypeController(BaseEntityController):
 
         session.commit()
         response({'id': subject.id})
-        self.registry.register(subject)
 
     def delete(self, request, response, subject, data):
         session = self.schema.session
@@ -34,7 +33,6 @@ class BaseArchetypeController(BaseEntityController):
 
         session.commit()
         response({'id': subject.id})
-        self.registry.register(subject, changed)
 
 class ArchetypeController(BaseArchetypeController):
     resource = resources.Archetype
@@ -44,4 +42,3 @@ class ArchetypeController(BaseArchetypeController):
     registry = Dependency(ArchetypeRegistry)
     schema = SchemaDependency('docket')
     mapping = 'id name designation description created modified resource properties'
-

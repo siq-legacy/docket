@@ -5,6 +5,7 @@ from docket.resources import *
 API = Bundle('docket',
     mount(Archetype, 'docket.controllers.archetype.ArchetypeController'),
     mount(Association, 'docket.controllers.association.AssociationController'),
+    mount(Concept, 'docket.controllers.concept.ConceptController'),
     mount(DocumentType, 'docket.controllers.documenttype.DocumentTypeController'),
     mount(Entity, 'docket.controllers.entity.EntityController'),
     mount(Intent, 'docket.controllers.intent.IntentController'),

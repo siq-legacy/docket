@@ -7,6 +7,7 @@ from spire.core import Unit
 from spire.mesh import MeshDependency
 from spire.runtime import current_runtime
 from spire.schema import *
+from spire.schema.construction import FieldConstructor
 from spire.support.logs import LogHelper
 from spire.util import import_object
 from sqlalchemy import MetaData
@@ -17,7 +18,7 @@ from docket.models import *
 
 log = LogHelper('docket')
 
-PROTOTYPES = (DocumentType,)
+PROTOTYPES = (Concept, DocumentType,)
 
 class ArchetypeRegistry(Unit):
     """The archetype registry."""
@@ -62,6 +63,11 @@ class ArchetypeRegistry(Unit):
     def _construct_model(self, archetype):
         parent = archetype.config.model
         attrs = {'id': ForeignKey(parent.id, nullable=False, primary_key=True)}
+
+        constructor = FieldConstructor()
+        if archetype.properties:
+            for name, field in sorted(archetype.properties.structure.iteritems()):
+                attrs[name] = constructor.construct(field)
 
         tablename = self._prepare_tablename(archetype.config.prefix, archetype.id)
         model = self.schema.construct_model(parent, tablename, attrs, tablename,
