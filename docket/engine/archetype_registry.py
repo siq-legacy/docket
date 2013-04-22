@@ -18,7 +18,7 @@ from docket.models import *
 
 log = LogHelper('docket')
 
-PROTOTYPES = (Concept, DocumentType,)
+PROTOTYPES = (Concept, DocumentType)
 
 class ArchetypeRegistry(Unit):
     """The archetype registry."""

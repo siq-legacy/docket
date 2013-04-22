@@ -12,12 +12,3 @@ class BaseInstance(Resource):
 
     class schema:
         id = UUID(oncreate=True, operators='equal')
-
-#class Instance(Resource, BaseEntity[1], BaseInstance[1]):
-#    """An entity instance."""
-#
-#    name = 'instance'
-#    version = 1
-#
-#    class schema:
-#        archetype = Token(nonempty=True, operators='equal')
