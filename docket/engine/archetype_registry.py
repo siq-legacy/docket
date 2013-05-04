@@ -3,6 +3,7 @@ import re
 import scheme
 from mesh.bundle import mount
 from mesh.standard import Controller, Resource, bind
+from mesh.standard.requests import add_schema_field
 from spire.core import Unit
 from spire.mesh import MeshDependency
 from spire.runtime import current_runtime
@@ -91,7 +92,7 @@ class ArchetypeRegistry(Unit):
 
     def _construct_resource(self, archetype, resource, version, mixins):
         bases = tuple([resource] + list(mixins))
-        return type(str(archetype.resource).capitalize(), bases, {
+        resource = type(str(archetype.resource).capitalize(), bases, {
             'name': archetype.resource,
             'version': version,
             'requests': 'create delete get put query update',
@@ -99,6 +100,12 @@ class ArchetypeRegistry(Unit):
                 'id': scheme.UUID(oncreate=True, operators='equal')
             },
         })
+
+        if archetype.properties:
+            for name, field in archetype.properties.structure.iteritems():
+                add_schema_field(resource, field)
+
+        return resource
 
     def _construct_table(self, archetype):
         metadata = MetaData()
@@ -144,7 +151,7 @@ class StaticConstructor(object):
 
     def _construct_resource(self, archetype, resource, version, mixins):
         bases = tuple([resource] + list(mixins))
-        return type(str(archetype['resource']).capitalize(), bases, {
+        resource = type(str(archetype['resource']).capitalize(), bases, {
             'name': archetype['resource'],
             'version': version,
             'requests': 'create delete get put query update',
@@ -152,3 +159,9 @@ class StaticConstructor(object):
                 'id': scheme.UUID(oncreate=True, operators='equal'),
             },
         })
+
+        if archetype.properties:
+            for name, field in archetype.properties.structure.iteritems():
+                add_schema_field(resource, field)
+
+        return resource

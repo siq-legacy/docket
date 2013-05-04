@@ -1,12 +1,12 @@
 from spire.schema import *
 
-from docket.models.instance import Instance
+from docket.models.entity import Entity
 
 __all__ = ('Constituent',)
 
 schema = Schema('docket')
 
-class Constituent(Instance):
+class Constituent(Entity):
     """A constituent."""
 
     class meta:
@@ -14,4 +14,4 @@ class Constituent(Instance):
         schema = schema
         tablename = 'constituent'
 
-    id = ForeignKey(Instance.id, nullable=False, primary_key=True)
+    id = ForeignKey(Entity.id, nullable=False, primary_key=True)
