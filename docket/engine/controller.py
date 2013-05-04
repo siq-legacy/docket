@@ -368,3 +368,10 @@ class ProxyController(Unit, Controller):
         self.schema.session.commit()
         response({'id': subject.id})
 
+    def _dispatch_request(self, definition, request, response, subject, data):
+        try:
+            result = self.proxy.execute_request(definition.name, subject, data)
+        except RequestError, exception:
+            return response(exception.status, exception.content)
+        else:
+            return response(result.content)
