@@ -160,8 +160,9 @@ class StaticConstructor(object):
             },
         })
 
-        if archetype.properties:
-            for name, field in archetype.properties.structure.iteritems():
+        properties = archetype.get('properties')
+        if properties:
+            for name, field in scheme.Structure.reconstruct(properties).structure.iteritems():
                 add_schema_field(resource, field)
 
         return resource
