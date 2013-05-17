@@ -1,5 +1,3 @@
-import re
-
 import scheme
 from mesh.bundle import mount
 from mesh.standard import Controller, Resource, bind
@@ -10,7 +8,7 @@ from spire.runtime import current_runtime
 from spire.schema import *
 from spire.schema.construction import FieldConstructor
 from spire.support.logs import LogHelper
-from spire.util import import_object
+from spire.util import import_object, safe_table_name
 from sqlalchemy import MetaData
 
 from docket import resources
@@ -70,7 +68,7 @@ class ArchetypeRegistry(Unit):
             for name, field in sorted(archetype.properties.structure.iteritems()):
                 attrs[name] = constructor.construct(field)
 
-        tablename = self._prepare_tablename(archetype.config.prefix, archetype.id)
+        tablename = safe_table_name(archetype.id.replace(':', '_'), archetype.config.prefix)
         model = self.schema.construct_model(parent, tablename, attrs, tablename,
             polymorphic_identity=archetype.id)
 
@@ -112,16 +110,12 @@ class ArchetypeRegistry(Unit):
         parent = Table(archetype.config.model.__tablename__, metadata,
             Text(name='id', nullable=False, primary_key=True))
 
-        tablename = self._prepare_tablename(archetype.config.prefix, archetype.id)
+        tablename = safe_table_name(archetype.id.replace(':', '_'), archetype.config.prefix)
         table = Table(tablename, metadata,
             ForeignKey(name='id', column=parent.c.id, type_=TextType(),
                 nullable=False, primary_key=True))
 
         return table
-
-    def _prepare_tablename(self, prefix, id):
-        tablename = id.lower().replace(':', '_')
-        return prefix + '_' + re.sub(r'[^a-z_]', '', tablename).strip('_')
 
 class StaticConstructor(object):
     def __init__(self, config, archetypes):
